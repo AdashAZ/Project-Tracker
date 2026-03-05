@@ -304,3 +304,8 @@ button {
   min-width: 3.6rem;
   font-variant-numeric: tabular-nums;
 }
+
+
+.dash-progress-yellow {
+  background-color: #f9a825;
+}

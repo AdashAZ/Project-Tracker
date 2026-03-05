@@ -61,10 +61,12 @@
       <td>{{ "%.1f"|format(project.incurred_hours_total or 0) }}</td>
       {% set pct_raw = project.percent_used %}
       {% set pct_fill = 100 if pct_raw > 100 else (0 if pct_raw < 0 else pct_raw) %}
-      {% if pct_raw <= 20 %}
+      {% if pct_raw <= 21.0 %}
         {% set pct_class = "dash-progress-red" %}
-      {% elif pct_raw <= 80 %}
+      {% elif pct_raw <= 61.0 %}
         {% set pct_class = "dash-progress-amber" %}
+      {% elif pct_raw <= 99.9 %}
+        {% set pct_class = "dash-progress-yellow" %}
       {% else %}
         {% set pct_class = "dash-progress-green" %}
       {% endif %}
@@ -81,5 +83,6 @@
   </tbody>
 </table>
 {% endblock %}
+
 
 
