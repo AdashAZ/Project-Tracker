@@ -19,17 +19,42 @@
 
 <section id="project-summary" class="project-summary">
   <h2>Summary</h2>
-  <p><strong>Customer:</strong> {{ project.customer }}</p>
-  <p><strong>Location:</strong> {{ project.location }}</p>
-  <p><strong>Product / Line:</strong> {{ project.product_line }}</p>
-  <p><strong>NA# / SO#:</strong> {{ project.na_number }}</p>
-  <p><strong>EDB#:</strong> {{ project.edb_number }}</p>
-  <p><strong>Due Date:</strong> {{ project.due_date or 'N/A' }}</p>
-  <p><strong>Days Left:</strong> {{ project.days_left if project.days_left is not none else 'N/A' }}</p>
-  <p><strong>Status:</strong> {{ project.status }}</p>
-  <p><strong>Quoted Hours:</strong> {{ "%.1f"|format(project.quoted_hours_total or 0) }}</p>
-  <p><strong>Incurred Hours:</strong> {{ "%.1f"|format(project.incurred_hours_total or 0) }}</p>
-  <p><strong>% Used:</strong> {{ "%.1f"|format(project.percent_used) }}%</p>
+  <div class="summary-grid">
+    <article class="summary-panel">
+      <h3>Project Info</h3>
+      <dl class="summary-list">
+        <div><dt>Customer</dt><dd>{{ project.customer or 'N/A' }}</dd></div>
+        <div><dt>Location</dt><dd>{{ project.location or 'N/A' }}</dd></div>
+        <div><dt>Product / Line</dt><dd>{{ project.product_line or 'N/A' }}</dd></div>
+        <div><dt>NA# / SO#</dt><dd>{{ project.na_number or 'N/A' }}</dd></div>
+        <div><dt>EDB#</dt><dd>{{ project.edb_number or 'N/A' }}</dd></div>
+      </dl>
+    </article>
+
+    <article class="summary-panel">
+      <h3>Hours & Health</h3>
+      <dl class="summary-list">
+        <div><dt>Status</dt><dd>{{ project.status }}</dd></div>
+        <div><dt>Due Date</dt><dd>{{ project.due_date or 'N/A' }}</dd></div>
+        <div><dt>Days Left</dt><dd>{{ project.days_left if project.days_left is not none else 'N/A' }}</dd></div>
+        <div><dt>Quoted Hours</dt><dd>{{ "%.1f"|format(project.quoted_hours_total or 0) }}</dd></div>
+        <div><dt>Incurred Hours</dt><dd>{{ "%.1f"|format(project.incurred_hours_total or 0) }}</dd></div>
+        {% set usage_pct = project.percent_used if project.percent_used > 0 else 0 %}
+        {% set usage_pct_capped = 100 if usage_pct > 100 else usage_pct %}
+        <div>
+          <dt>% Used</dt>
+          <dd>
+            <div class="usage-progress-wrap">
+              <div class="usage-progress-track">
+                <div class="usage-progress-fill" style="width: {{ "%.1f"|format(usage_pct_capped) }}%;"></div>
+              </div>
+              <span class="usage-progress-text">{{ "%.1f"|format(project.percent_used) }}%</span>
+            </div>
+          </dd>
+        </div>
+      </dl>
+    </article>
+  </div>
 </section>
 
 <section id="project-edit" class="project-edit" style="margin-top: 1.5rem; display: none;">
@@ -103,17 +128,57 @@
     <thead>
       <tr>
         <th>Machine / Asset #</th>
+        <th>Work Status</th>
         <th>Tracked Hours</th>
         <th>Entries</th>
+        {% for milestone in milestone_definitions %}
+        <th>{{ milestone.label }}</th>
+        {% endfor %}
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for machine in machines %}
-      <tr>
+      <tr class="{% if machine_row_complete.get(machine.id) %}machine-complete-row{% endif %}">
         <td>{{ machine.machine_name }}</td>
+        <td>
+          <form method="post" action="{{ url_for('update_machine_status', project_id=project.id, machine_id=machine.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <select name="status" onchange="this.form.submit()">
+              {% for status_option in machine_status_options %}
+              <option value="{{ status_option }}" {% if machine.status == status_option %}selected{% endif %}>{{ status_option }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </td>
         <td>{{ "%.1f"|format(machine_hours.get(machine.id, 0.0)) }}</td>
         <td>{{ machine_entry_counts.get(machine.id, 0) }}</td>
+
+        {% for milestone in milestone_definitions %}
+        {% set milestone_value = machine_milestones[machine.id][milestone.key] %}
+        <td class="milestone-cell {% if milestone_value %}milestone-done{% endif %}">
+          <div class="milestone-date">{{ milestone_value or 'N/A' }}</div>
+          <div class="milestone-actions">
+            <form
+              method="post"
+              action="{{ url_for('set_machine_milestone_today', project_id=project.id, machine_id=machine.id, milestone_key=milestone.key) }}"
+              {% if milestone_value %}onsubmit="return confirm('This will overwrite the existing date with today. Continue?');"{% endif %}
+            >
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-mini">Set Today</button>
+            </form>
+            <form
+              method="post"
+              action="{{ url_for('clear_machine_milestone', project_id=project.id, machine_id=machine.id, milestone_key=milestone.key) }}"
+              onsubmit="return confirm('Clear this date?');"
+            >
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn-mini btn-link-danger">Clear</button>
+            </form>
+          </div>
+        </td>
+        {% endfor %}
+
         <td class="row-actions">
           <a href="{{ url_for('project_detail', project_id=project.id, edit_machine=machine.id) }}#machines">Edit</a>
           <form method="post" action="{{ url_for('delete_machine', project_id=project.id, machine_id=machine.id) }}" onsubmit="return confirm('Delete this machine / asset #? Linked time entries will keep data but lose machine link.');">
@@ -124,12 +189,67 @@
       </tr>
       {% if edit_machine_id == machine.id %}
       <tr class="edit-row">
-        <td colspan="4">
+        <td colspan="{{ 5 + (milestone_definitions|length) }}">
           <form method="post" action="{{ url_for('update_machine', project_id=project.id, machine_id=machine.id) }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-            <div class="form-inline">
-              <label for="edit-machine-name-{{ machine.id }}">Machine / Asset # *</label>
-              <input type="text" id="edit-machine-name-{{ machine.id }}" name="machine_name" value="{{ machine.machine_name }}" required>
+
+            <div class="machine-edit-grid">
+              <div>
+                <label for="edit-machine-name-{{ machine.id }}">Machine / Asset # *</label>
+                <input type="text" id="edit-machine-name-{{ machine.id }}" name="machine_name" value="{{ machine.machine_name }}" required>
+              </div>
+
+              <div>
+                <label for="edit-machine-status-{{ machine.id }}">Work Status</label>
+                <select id="edit-machine-status-{{ machine.id }}" name="status">
+                  {% for status_option in machine_status_options %}
+                  <option value="{{ status_option }}" {% if machine.status == status_option %}selected{% endif %}>{{ status_option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div>
+                <label for="edit-quoted-hours-{{ machine.id }}">Quoted Hours</label>
+                <input type="number" step="0.1" id="edit-quoted-hours-{{ machine.id }}" name="quoted_hours" value="{{ machine.quoted_hours or 0 }}">
+              </div>
+
+              <div>
+                <label for="edit-incurred-hours-{{ machine.id }}">Incurred Hours</label>
+                <input type="number" step="0.1" id="edit-incurred-hours-{{ machine.id }}" name="incurred_hours" value="{{ machine.incurred_hours or 0 }}">
+              </div>
+
+              <div>
+                <label for="edit-version-{{ machine.id }}">Version</label>
+                <input type="text" id="edit-version-{{ machine.id }}" name="version" value="{{ machine.version or '' }}">
+              </div>
+
+              <div class="machine-edit-checkbox">
+                <label for="edit-nctp-{{ machine.id }}">NCTP</label>
+                <input type="checkbox" id="edit-nctp-{{ machine.id }}" name="nctp" {% if machine.nctp %}checked{% endif %}>
+              </div>
+
+              <div>
+                <label for="edit-cas-approval-{{ machine.id }}">Report CAS Approval Date</label>
+                <input type="date" id="edit-cas-approval-{{ machine.id }}" name="report_cas_approval_date" value="{{ machine.report_cas_approval_date.isoformat() if machine.report_cas_approval_date else '' }}">
+              </div>
+
+              <div>
+                <label for="edit-sent-customer-{{ machine.id }}">Report Sent to Customer Date</label>
+                <input type="date" id="edit-sent-customer-{{ machine.id }}" name="report_sent_customer_date" value="{{ machine.report_sent_customer_date.isoformat() if machine.report_sent_customer_date else '' }}">
+              </div>
+
+              <div>
+                <label for="edit-sent-review-edb-{{ machine.id }}">Report Sent for Review in EDB</label>
+                <input type="date" id="edit-sent-review-edb-{{ machine.id }}" name="report_sent_review_edb_date" value="{{ machine.report_sent_review_edb_date.isoformat() if machine.report_sent_review_edb_date else '' }}">
+              </div>
+
+              <div>
+                <label for="edit-released-edb-{{ machine.id }}">Released in EDB</label>
+                <input type="date" id="edit-released-edb-{{ machine.id }}" name="released_in_edb_date" value="{{ machine.released_in_edb_date.isoformat() if machine.released_in_edb_date else '' }}">
+              </div>
+            </div>
+
+            <div class="machine-edit-actions">
               <button type="submit">Save</button>
               <a href="{{ url_for('project_detail', project_id=project.id) }}#machines">Cancel</a>
             </div>
@@ -300,3 +420,4 @@
   </table>
 </section>
 {% endblock %}
+

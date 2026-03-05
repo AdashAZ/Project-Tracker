@@ -19,11 +19,9 @@ class Project(db.Model):
     due_date = db.Column(db.Date)
     status = db.Column(db.String(50), default="Not Started")
 
-    # Totals for the whole project (you can keep them derived if you prefer)
     quoted_hours_total = db.Column(db.Float, default=0.0)
     incurred_hours_total = db.Column(db.Float, default=0.0)
 
-    # Relationships
     machines = db.relationship(
         "Machine",
         backref="project",
@@ -45,14 +43,12 @@ class Project(db.Model):
 
     @property
     def days_left(self) -> int | None:
-        """Days until due date (like your Excel formulas)."""
         if not self.due_date:
             return None
         return (self.due_date - date.today()).days
 
     @property
     def percent_used(self) -> float:
-        """% of hours used."""
         if not self.quoted_hours_total:
             return 0.0
         return (self.incurred_hours_total or 0.0) / self.quoted_hours_total * 100.0
@@ -70,12 +66,16 @@ class Machine(db.Model):
     )
 
     machine_name = db.Column(db.String(255), nullable=False)
-    status = db.Column(db.String(50), default="Not Started")
+    status = db.Column(db.String(50), default="N/A")
+
+    report_cas_approval_date = db.Column(db.Date, nullable=True)
+    report_sent_customer_date = db.Column(db.Date, nullable=True)
+    report_sent_review_edb_date = db.Column(db.Date, nullable=True)
+    released_in_edb_date = db.Column(db.Date, nullable=True)
 
     quoted_hours = db.Column(db.Float, default=0.0)
     incurred_hours = db.Column(db.Float, default=0.0)
 
-    # Optional fields for your use-case (NCTP, version, etc.)
     nctp = db.Column(db.Boolean, default=False)
     version = db.Column(db.String(50))
 
@@ -112,7 +112,7 @@ class TimeEntry(db.Model):
     )
 
     date = db.Column(db.Date)
-    work_type = db.Column(db.String(100))   # e.g. "RA On-site", "SC Off-site"
+    work_type = db.Column(db.String(100))
     hours = db.Column(db.Float, nullable=False)
     notes = db.Column(db.Text)
 

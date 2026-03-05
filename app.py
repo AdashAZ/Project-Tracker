@@ -12,17 +12,41 @@ from flask import (
     flash,
     session,
 )
+from sqlalchemy import text
+
 from models import db, Project, Machine, TimeEntry, Comment
 
 ALLOWED_STATUSES = {"Not Started", "WIP", "Stopped", "Complete"}
+MACHINE_STATUS_OPTIONS = ["WIP", "Stopped", "Completed", "Review", "N/A"]
+MACHINE_MILESTONE_DEFINITIONS = [
+    {
+        "key": "cas_approval",
+        "label": "Report CAS Approval Date",
+        "field": "report_cas_approval_date",
+    },
+    {
+        "key": "sent_customer",
+        "label": "Report Sent to Customer Date",
+        "field": "report_sent_customer_date",
+    },
+    {
+        "key": "sent_review_edb",
+        "label": "Report Sent for Review in EDB",
+        "field": "report_sent_review_edb_date",
+    },
+    {
+        "key": "released_edb",
+        "label": "Released in EDB",
+        "field": "released_in_edb_date",
+    },
+]
+MILESTONE_FIELD_BY_KEY = {item["key"]: item["field"] for item in MACHINE_MILESTONE_DEFINITIONS}
 
 
 def create_app():
     app = Flask(__name__)
 
-    # Basic config
     app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-    # SQLite DB in instance/ folder (created if it doesn't exist)
     db_path = os.path.join(app.instance_path, "app.db")
     os.makedirs(app.instance_path, exist_ok=True)
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
@@ -32,6 +56,7 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        ensure_machine_schema()
 
     def parse_date_input(value: str | None):
         if not value:
@@ -69,6 +94,20 @@ def create_app():
                 machine_hours[entry.machine_id] += entry.hours or 0.0
                 machine_entry_counts[entry.machine_id] += 1
         return machine_hours, machine_entry_counts
+
+    def get_machine_milestone_view(machines):
+        milestone_values = {}
+        row_complete = {}
+        milestone_fields = [item["field"] for item in MACHINE_MILESTONE_DEFINITIONS]
+
+        for machine in machines:
+            per_machine = {}
+            for item in MACHINE_MILESTONE_DEFINITIONS:
+                per_machine[item["key"]] = getattr(machine, item["field"])
+            milestone_values[machine.id] = per_machine
+            row_complete[machine.id] = all(getattr(machine, field) for field in milestone_fields)
+
+        return milestone_values, row_complete
 
     def get_csrf_token():
         token = session.get("_csrf_token")
@@ -147,7 +186,7 @@ def create_app():
             if machines_raw:
                 machine_names = [line.strip() for line in machines_raw.splitlines() if line.strip()]
                 for name in machine_names:
-                    db.session.add(Machine(project_id=project.id, machine_name=name))
+                    db.session.add(Machine(project_id=project.id, machine_name=name, status="N/A"))
                 db.session.commit()
 
             flash("Project created.", "success")
@@ -173,6 +212,7 @@ def create_app():
         total_incurred = sum(te.hours for te in time_entries)
         project.incurred_hours_total = total_incurred
         machine_hours, machine_entry_counts = compute_machine_stats(machines, time_entries)
+        machine_milestones, machine_row_complete = get_machine_milestone_view(machines)
 
         edit_machine_id = request.args.get("edit_machine", type=int)
         if edit_machine_id and not any(machine.id == edit_machine_id for machine in machines):
@@ -194,6 +234,10 @@ def create_app():
             comments=comments,
             machine_hours=machine_hours,
             machine_entry_counts=machine_entry_counts,
+            machine_milestones=machine_milestones,
+            machine_row_complete=machine_row_complete,
+            machine_status_options=MACHINE_STATUS_OPTIONS,
+            milestone_definitions=MACHINE_MILESTONE_DEFINITIONS,
             edit_machine_id=edit_machine_id,
             edit_time_entry_id=edit_time_entry_id,
             edit_comment_id=edit_comment_id,
@@ -217,7 +261,7 @@ def create_app():
             flash("Machine / Asset # cannot be empty.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        db.session.add(Machine(project_id=project.id, machine_name=machine_name))
+        db.session.add(Machine(project_id=project.id, machine_name=machine_name, status="N/A"))
         db.session.commit()
 
         flash("Machine / Asset # added.", "success")
@@ -227,16 +271,118 @@ def create_app():
     def update_machine(project_id, machine_id):
         project = Project.query.get_or_404(project_id)
         machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+
         machine_name = (request.form.get("machine_name") or "").strip()
+        status = request.form.get("status")
+        quoted_hours_raw = request.form.get("quoted_hours")
+        incurred_hours_raw = request.form.get("incurred_hours")
+        version = (request.form.get("version") or "").strip() or None
+        nctp = request.form.get("nctp") == "on"
+
+        cas_approval_raw = request.form.get("report_cas_approval_date")
+        sent_customer_raw = request.form.get("report_sent_customer_date")
+        sent_review_edb_raw = request.form.get("report_sent_review_edb_date")
+        released_edb_raw = request.form.get("released_in_edb_date")
 
         if not machine_name:
             flash("Machine / Asset # cannot be empty.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
+        if status not in MACHINE_STATUS_OPTIONS:
+            flash("Invalid machine status value.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        quoted_hours = parse_float_input(quoted_hours_raw)
+        if quoted_hours is None and (quoted_hours_raw or "") != "":
+            flash("Quoted hours must be a valid number.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        incurred_hours = parse_float_input(incurred_hours_raw)
+        if incurred_hours is None and (incurred_hours_raw or "") != "":
+            flash("Incurred hours must be a valid number.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        cas_approval = parse_date_input(cas_approval_raw)
+        if cas_approval_raw and cas_approval is None:
+            flash("Invalid CAS approval date.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        sent_customer = parse_date_input(sent_customer_raw)
+        if sent_customer_raw and sent_customer is None:
+            flash("Invalid report sent to customer date.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        sent_review_edb = parse_date_input(sent_review_edb_raw)
+        if sent_review_edb_raw and sent_review_edb is None:
+            flash("Invalid sent for review in EDB date.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        released_edb = parse_date_input(released_edb_raw)
+        if released_edb_raw and released_edb is None:
+            flash("Invalid released in EDB date.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
         machine.machine_name = machine_name
+        machine.status = status
+        machine.quoted_hours = quoted_hours if quoted_hours is not None else 0.0
+        machine.incurred_hours = incurred_hours if incurred_hours is not None else 0.0
+        machine.version = version
+        machine.nctp = nctp
+        machine.report_cas_approval_date = cas_approval
+        machine.report_sent_customer_date = sent_customer
+        machine.report_sent_review_edb_date = sent_review_edb
+        machine.released_in_edb_date = released_edb
         db.session.commit()
 
-        flash("Machine / Asset # updated.", "success")
+        flash("Machine row updated.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machines/<int:machine_id>/status", methods=["POST"])
+    def update_machine_status(project_id, machine_id):
+        project = Project.query.get_or_404(project_id)
+        machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+        new_status = request.form.get("status")
+
+        if new_status not in MACHINE_STATUS_OPTIONS:
+            flash("Invalid machine status value.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        machine.status = new_status
+        db.session.commit()
+
+        flash("Machine status updated.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machines/<int:machine_id>/milestones/<string:milestone_key>/set_today", methods=["POST"])
+    def set_machine_milestone_today(project_id, machine_id, milestone_key):
+        project = Project.query.get_or_404(project_id)
+        machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+        field = MILESTONE_FIELD_BY_KEY.get(milestone_key)
+
+        if not field:
+            flash("Invalid milestone field.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        setattr(machine, field, datetime.today().date())
+        db.session.commit()
+
+        flash("Milestone updated to today.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machines/<int:machine_id>/milestones/<string:milestone_key>/clear", methods=["POST"])
+    def clear_machine_milestone(project_id, machine_id, milestone_key):
+        project = Project.query.get_or_404(project_id)
+        machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+        field = MILESTONE_FIELD_BY_KEY.get(milestone_key)
+
+        if not field:
+            flash("Invalid milestone field.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        setattr(machine, field, None)
+        db.session.commit()
+
+        flash("Milestone cleared.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/machines/<int:machine_id>/delete", methods=["POST"])
@@ -244,7 +390,6 @@ def create_app():
         project = Project.query.get_or_404(project_id)
         machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
 
-        # Preserve related records by detaching machine reference before delete.
         TimeEntry.query.filter_by(project_id=project.id, machine_id=machine.id).update({"machine_id": None})
         Comment.query.filter_by(project_id=project.id, machine_id=machine.id).update({"machine_id": None})
 
@@ -479,6 +624,28 @@ def create_app():
     return app
 
 
+def ensure_machine_schema():
+    existing_cols = {
+        row[1]
+        for row in db.session.execute(text("PRAGMA table_info(machines)")).fetchall()
+    }
+
+    required_cols = {
+        "status": "TEXT DEFAULT 'N/A'",
+        "report_cas_approval_date": "DATE",
+        "report_sent_customer_date": "DATE",
+        "report_sent_review_edb_date": "DATE",
+        "released_in_edb_date": "DATE",
+    }
+
+    for col_name, col_def in required_cols.items():
+        if col_name not in existing_cols:
+            db.session.execute(text(f"ALTER TABLE machines ADD COLUMN {col_name} {col_def}"))
+
+    db.session.commit()
+
+
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True)
+
