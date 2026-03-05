@@ -29,7 +29,7 @@
       <th>Status</th>
       <th>Quoted Hours</th>
       <th>Incurred Hours</th>
-      <th>% Used</th>
+      <th>% Done</th>
     </tr>
   </thead>
   <tbody>
@@ -59,9 +59,27 @@
       </td>
       <td>{{ "%.1f"|format(project.quoted_hours_total or 0) }}</td>
       <td>{{ "%.1f"|format(project.incurred_hours_total or 0) }}</td>
-      <td>{{ "%.1f"|format(project.percent_used) }}%</td>
+      {% set pct_raw = project.percent_used %}
+      {% set pct_fill = 100 if pct_raw > 100 else (0 if pct_raw < 0 else pct_raw) %}
+      {% if pct_raw <= 20 %}
+        {% set pct_class = "dash-progress-red" %}
+      {% elif pct_raw <= 80 %}
+        {% set pct_class = "dash-progress-amber" %}
+      {% else %}
+        {% set pct_class = "dash-progress-green" %}
+      {% endif %}
+      <td>
+        <div class="dash-progress-wrap">
+          <div class="dash-progress-track">
+            <div class="dash-progress-fill {{ pct_class }}" style="width: {{ "%.1f"|format(pct_fill) }}%;"></div>
+          </div>
+          <span class="dash-progress-text">{{ "%.1f"|format(pct_raw) }}%</span>
+        </div>
+      </td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 {% endblock %}
+
+

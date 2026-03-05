@@ -268,3 +268,39 @@ button {
 }
 
 
+
+.dash-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 140px;
+}
+
+.dash-progress-track {
+  flex: 1;
+  height: 0.5rem;
+  border-radius: 999px;
+  background-color: #eceff1;
+  overflow: hidden;
+}
+
+.dash-progress-fill {
+  height: 100%;
+}
+
+.dash-progress-red {
+  background-color: #d32f2f;
+}
+
+.dash-progress-amber {
+  background-color: #ef6c00;
+}
+
+.dash-progress-green {
+  background-color: #2e7d32;
+}
+
+.dash-progress-text {
+  min-width: 3.6rem;
+  font-variant-numeric: tabular-nums;
+}
