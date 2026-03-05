@@ -65,6 +65,9 @@ def create_app():
             due_date_str = request.form.get("due_date")
             quoted_hours_total = request.form.get("quoted_hours_total") or 0
 
+            # NEW: optional multi-line machines / asset numbers
+            machines_raw = request.form.get("machines")
+
             if not customer:
                 flash("Customer is required.", "error")
                 return redirect(url_for("new_project"))
@@ -84,11 +87,25 @@ def create_app():
             )
             db.session.add(project)
             db.session.commit()
+
+            # NEW: if machines were provided, create one Machine row per line
+            if machines_raw:
+                # split on new lines, strip whitespace, ignore empty lines
+                machine_names = [
+                    line.strip() for line in machines_raw.splitlines() if line.strip()
+                ]
+                for name in machine_names:
+                    machine = Machine(
+                        project_id=project.id,
+                        machine_name=name
+                    )
+                    db.session.add(machine)
+                db.session.commit()
+
             flash("Project created.", "success")
             return redirect(url_for("project_detail", project_id=project.id))
 
         return render_template("project_form.html")
-
 
     @app.route("/projects/<int:project_id>")
     def project_detail(project_id):
