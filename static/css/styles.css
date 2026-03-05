@@ -221,6 +221,7 @@ button {
 }
 
 .milestone-done {
+  background-color: #dff3e2;
   border-left: 3px solid #2e7d32;
 }
 
@@ -265,3 +266,5 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+

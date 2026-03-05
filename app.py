@@ -105,7 +105,7 @@ def create_app():
             for item in MACHINE_MILESTONE_DEFINITIONS:
                 per_machine[item["key"]] = getattr(machine, item["field"])
             milestone_values[machine.id] = per_machine
-            row_complete[machine.id] = all(getattr(machine, field) for field in milestone_fields)
+            row_complete[machine.id] = machine.status == "Completed"
 
         return milestone_values, row_complete
 
@@ -648,4 +648,5 @@ def ensure_machine_schema():
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True)
+
 
