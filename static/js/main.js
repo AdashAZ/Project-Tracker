@@ -1,10 +1,9 @@
-
-flask
-flask_sqlalchemy
-
-
 // static/js/main.js
+
 document.addEventListener("DOMContentLoaded", () => {
+  // ---------------------------
+  // Dashboard: status filter
+  // ---------------------------
   const statusFilter = document.getElementById("status-filter");
   const projectsTable = document.getElementById("projects-table");
 
@@ -23,6 +22,33 @@ document.addEventListener("DOMContentLoaded", () => {
           row.style.display = "none";
         }
       });
+    });
+  }
+
+  // ---------------------------
+  // Project detail: toggle edit form
+  // ---------------------------
+  const toggleBtn = document.getElementById("toggle-edit-btn");
+  const summarySection = document.getElementById("project-summary");
+  const editSection = document.getElementById("project-edit");
+
+  // Only attach behavior if we're on a project detail page
+  if (toggleBtn && summarySection && editSection) {
+    toggleBtn.addEventListener("click", () => {
+      // Determine current state by checking edit section visibility
+      const isEditing = editSection.style.display !== "none";
+
+      if (isEditing) {
+        // Currently editing -> hide form, show summary
+        editSection.style.display = "none";
+        summarySection.style.display = "";
+        toggleBtn.textContent = "Edit Project";
+      } else {
+        // Currently viewing -> show form, hide summary
+        editSection.style.display = "";
+        summarySection.style.display = "none";
+        toggleBtn.textContent = "Cancel Edit";
+      }
     });
   }
 });

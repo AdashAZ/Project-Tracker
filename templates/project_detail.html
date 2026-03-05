@@ -5,6 +5,7 @@
 {% block content %}
 <h1>Project Detail</h1>
 
+<!-- Delete project -->
 <form
   method="post"
   action="{{ url_for('delete_project', project_id=project.id) }}"
@@ -16,25 +17,38 @@
   </button>
 </form>
 
+<!-- Toggle edit -->
+<button type="button" id="toggle-edit-btn" style="margin-bottom: 1rem;">
+  Edit Project
+</button>
 
-<section class="project-summary">
+<!-- Read-only summary -->
+<section id="project-summary" class="project-summary">
   <h2>Summary</h2>
-<!--
   <p><strong>Customer:</strong> {{ project.customer }}</p>
   <p><strong>Location:</strong> {{ project.location }}</p>
   <p><strong>Product / Line:</strong> {{ project.product_line }}</p>
   <p><strong>NA# / SO#:</strong> {{ project.na_number }}</p>
   <p><strong>EDB#:</strong> {{ project.edb_number }}</p>
   <p><strong>Due Date:</strong> {{ project.due_date or 'N/A' }}</p>
-  <p><strong>Days Left:</strong> {{ project.days_left if project.days_left is not none else 'N/A' }}</p>
+  <p><strong>Days Left:</strong>
+    {{ project.days_left if project.days_left is not none else 'N/A' }}
+  </p>
   <p><strong>Status:</strong> {{ project.status }}</p>
-  <p><strong>Quoted Hours:</strong> {{ "%.1f"|format(project.quoted_hours_total or 0) }}</p>
-  <p><strong>Incurred Hours:</strong> {{ "%.1f"|format(project.incurred_hours_total or 0) }}</p>
-  <p><strong>% Used:</strong> {{ "%.1f"|format(project.percent_used) }}%</p>
-</section>-->
+  <p><strong>Quoted Hours:</strong>
+    {{ "%.1f"|format(project.quoted_hours_total or 0) }}
+  </p>
+  <p><strong>Incurred Hours:</strong>
+    {{ "%.1f"|format(project.incurred_hours_total or 0) }}
+  </p>
+  <p><strong>% Used:</strong>
+    {{ "%.1f"|format(project.percent_used) }}%
+  </p>
+</section>
 
-<section class="project-edit" style="margin-top: 1.5rem;">
-
+<!-- Edit form (hidden by default) -->
+<section id="project-edit" class="project-edit" style="margin-top: 1.5rem; display: none;">
+  <h2>Edit Project</h2>
 
   <form method="post" action="{{ url_for('update_project', project_id=project.id) }}">
     <div class="form-group">
@@ -109,6 +123,7 @@
   </form>
 </section>
 
+<!-- Time entries -->
 <section class="time-entries">
   <h2>Time Entries</h2>
 
@@ -162,6 +177,7 @@
   </table>
 </section>
 
+<!-- Comments -->
 <section class="comments">
   <h2>Comments</h2>
 
@@ -171,19 +187,6 @@
       <input type="text" id="author" name="author" placeholder="Your name">
 
       <label for="comment">Comment *</label>
-      <input type="text" id="comment" name="comment" required>
-
-      <button type="submit">Add Comment</button>
-    </div>
-  </form>
-
-  <ul class="comment-list">
-    {% for c in comments %}
-    <li>
-      <strong>{{ c.created_at }} – {{ c.author or 'System' }}:</strong> {{ c.comment }}
-    </li>
-    {% endfor %}
-  </ul>
-</section>
+      <input type="text" id="
 
 {% endblock %}
