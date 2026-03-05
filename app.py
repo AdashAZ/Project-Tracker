@@ -194,6 +194,50 @@ def create_app():
 
         return redirect(url_for("project_detail", project_id=project.id))
 
+    @app.route("/projects/<int:project_id>/update", methods=["POST"])
+    def update_project(project_id):
+        project = Project.query.get_or_404(project_id)
+
+        # Get updated values from the form
+        customer = request.form.get("customer")
+        location = request.form.get("location")
+        product_line = request.form.get("product_line")
+        na_number = request.form.get("na_number")
+        edb_number = request.form.get("edb_number")
+        due_date_str = request.form.get("due_date")
+        quoted_hours_total = request.form.get("quoted_hours_total")
+        status = request.form.get("status")
+
+        # Apply updates if provided
+        if customer is not None:
+            project.customer = customer
+        if location is not None:
+            project.location = location
+        if product_line is not None:
+            project.product_line = product_line
+        if na_number is not None:
+            project.na_number = na_number
+        if edb_number is not None:
+            project.edb_number = edb_number
+
+        if due_date_str:
+            project.due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+        else:
+            project.due_date = None  # or leave as-is if you prefer
+
+        if quoted_hours_total is not None and quoted_hours_total != "":
+            project.quoted_hours_total = float(quoted_hours_total)
+
+        if status:
+            project.status = status
+
+        db.session.commit()
+        flash("Project updated.", "success")
+        return redirect(url_for("project_detail", project_id=project.id))
+
+
+
+
     @app.route("/projects/<int:project_id>/comments", methods=["POST"])
     def add_comment(project_id):
         project = Project.query.get_or_404(project_id)
