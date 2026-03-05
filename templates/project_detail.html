@@ -387,7 +387,7 @@
       <tr>
         <td>{{ item.created_at or '' }}</td>
         <td>{{ item.author }}</td>
-        <td>{{ item.comment }}</td>
+        <td>{{ item.comment_html }}</td>
         <td class="row-actions">
           <a href="{{ url_for('project_detail', project_id=project.id, edit_comment=item.id) }}#comments">Edit</a>
           <form method="post" action="{{ url_for('delete_comment', project_id=project.id, comment_id=item.id) }}" onsubmit="return confirm('Delete this comment?');">

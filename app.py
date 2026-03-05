@@ -1,6 +1,8 @@
 # app.py
 from datetime import datetime
+import re
 import os
+import subprocess
 import secrets
 
 from flask import (
@@ -13,6 +15,8 @@ from flask import (
     session,
 )
 from sqlalchemy import text
+from urllib.parse import quote
+from markupsafe import Markup, escape
 
 from models import db, Project, Machine, TimeEntry, Comment
 
@@ -109,6 +113,31 @@ def create_app():
 
         return milestone_values, row_complete
 
+
+    def linkify_comment_text(comment_text: str):
+        # Match Windows absolute paths like C:\Folder\Subfolder\File
+        path_pattern = re.compile(r"[A-Za-z]:\\[^\r\n]+")
+        parts = []
+        last_end = 0
+
+        for match in path_pattern.finditer(comment_text or ""):
+            start, end = match.span()
+            if start > last_end:
+                parts.append(escape(comment_text[last_end:start]))
+
+            raw_path = match.group(0)
+            open_href = url_for("open_path") + "?target=" + quote(raw_path, safe="")
+            link = Markup(f'<a href="{open_href}">{escape(raw_path)}</a>')
+            parts.append(link)
+            last_end = end
+
+        if last_end < len(comment_text or ""):
+            parts.append(escape((comment_text or "")[last_end:]))
+
+        if not parts:
+            return escape(comment_text or "")
+
+        return Markup("".join(str(p) for p in parts))
     def get_csrf_token():
         token = session.get("_csrf_token")
         if not token:
@@ -145,6 +174,26 @@ def create_app():
 
         return render_template("dashboard.html", projects=projects, status_filter=status_filter)
 
+    @app.route("/open-path")
+    def open_path():
+        target = request.args.get("target", type=str) or ""
+
+        # Only allow local absolute Windows-style paths like C:\...
+        if not re.match(r"^[A-Za-z]:\\", target):
+            flash("Invalid local path format.", "error")
+            return redirect(request.referrer or url_for("dashboard"))
+
+        if not os.path.exists(target):
+            flash("Path does not exist on this machine.", "error")
+            return redirect(request.referrer or url_for("dashboard"))
+
+        try:
+            subprocess.Popen(["explorer", target])
+            flash("Opened path in Explorer.", "success")
+        except Exception:
+            flash("Failed to open path.", "error")
+
+        return redirect(request.referrer or url_for("dashboard"))
     @app.route("/projects/new", methods=["GET", "POST"])
     def new_project():
         if request.method == "POST":
@@ -208,6 +257,9 @@ def create_app():
             .order_by(Comment.created_at.desc(), Comment.id.desc())
             .all()
         )
+
+        for item in comments:
+            item.comment_html = linkify_comment_text(item.comment or "")
 
         total_incurred = sum(te.hours for te in time_entries)
         project.incurred_hours_total = total_incurred
@@ -648,5 +700,4 @@ def ensure_machine_schema():
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True)
-
 
