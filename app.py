@@ -61,6 +61,15 @@ def create_app():
             return None, "Invalid machine selection."
         return machine.id, None
 
+    def compute_machine_stats(machines, time_entries):
+        machine_hours = {machine.id: 0.0 for machine in machines}
+        machine_entry_counts = {machine.id: 0 for machine in machines}
+        for entry in time_entries:
+            if entry.machine_id in machine_hours:
+                machine_hours[entry.machine_id] += entry.hours or 0.0
+                machine_entry_counts[entry.machine_id] += 1
+        return machine_hours, machine_entry_counts
+
     def get_csrf_token():
         token = session.get("_csrf_token")
         if not token:
@@ -80,10 +89,6 @@ def create_app():
             if not expected or expected != received:
                 flash("Invalid form token. Please try again.", "error")
                 return redirect(request.referrer or url_for("dashboard"))
-
-    # ---------------------------
-    # Routes
-    # ---------------------------
 
     @app.route("/")
     def dashboard():
@@ -153,7 +158,7 @@ def create_app():
     @app.route("/projects/<int:project_id>")
     def project_detail(project_id):
         project = Project.query.get_or_404(project_id)
-        machines = Machine.query.filter_by(project_id=project.id).all()
+        machines = Machine.query.filter_by(project_id=project.id).order_by(Machine.id.asc()).all()
         time_entries = (
             TimeEntry.query.filter_by(project_id=project.id)
             .order_by(TimeEntry.date.desc(), TimeEntry.id.desc())
@@ -167,6 +172,11 @@ def create_app():
 
         total_incurred = sum(te.hours for te in time_entries)
         project.incurred_hours_total = total_incurred
+        machine_hours, machine_entry_counts = compute_machine_stats(machines, time_entries)
+
+        edit_machine_id = request.args.get("edit_machine", type=int)
+        if edit_machine_id and not any(machine.id == edit_machine_id for machine in machines):
+            edit_machine_id = None
 
         edit_time_entry_id = request.args.get("edit_time_entry", type=int)
         if edit_time_entry_id and not any(entry.id == edit_time_entry_id for entry in time_entries):
@@ -182,6 +192,9 @@ def create_app():
             machines=machines,
             time_entries=time_entries,
             comments=comments,
+            machine_hours=machine_hours,
+            machine_entry_counts=machine_entry_counts,
+            edit_machine_id=edit_machine_id,
             edit_time_entry_id=edit_time_entry_id,
             edit_comment_id=edit_comment_id,
         )
@@ -194,6 +207,52 @@ def create_app():
 
         flash("Project deleted successfully.", "success")
         return redirect(url_for("dashboard"))
+
+    @app.route("/projects/<int:project_id>/machines", methods=["POST"])
+    def add_machine(project_id):
+        project = Project.query.get_or_404(project_id)
+        machine_name = (request.form.get("machine_name") or "").strip()
+
+        if not machine_name:
+            flash("Machine / Asset # cannot be empty.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        db.session.add(Machine(project_id=project.id, machine_name=machine_name))
+        db.session.commit()
+
+        flash("Machine / Asset # added.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machines/<int:machine_id>/update", methods=["POST"])
+    def update_machine(project_id, machine_id):
+        project = Project.query.get_or_404(project_id)
+        machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+        machine_name = (request.form.get("machine_name") or "").strip()
+
+        if not machine_name:
+            flash("Machine / Asset # cannot be empty.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        machine.machine_name = machine_name
+        db.session.commit()
+
+        flash("Machine / Asset # updated.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machines/<int:machine_id>/delete", methods=["POST"])
+    def delete_machine(project_id, machine_id):
+        project = Project.query.get_or_404(project_id)
+        machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+
+        # Preserve related records by detaching machine reference before delete.
+        TimeEntry.query.filter_by(project_id=project.id, machine_id=machine.id).update({"machine_id": None})
+        Comment.query.filter_by(project_id=project.id, machine_id=machine.id).update({"machine_id": None})
+
+        db.session.delete(machine)
+        db.session.commit()
+
+        flash("Machine / Asset # deleted.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/status", methods=["POST"])
     def update_project_status(project_id):
@@ -219,9 +278,13 @@ def create_app():
         hours_str = request.form.get("hours")
         machine_id_raw = request.form.get("machine_id")
         notes = request.form.get("notes")
+        has_machines = Machine.query.filter_by(project_id=project.id).count() > 0
 
         if not hours_str:
             flash("Hours are required.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
+        if has_machines and not machine_id_raw:
+            flash("Select a machine / asset # for this time entry.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
 
         entry_date = parse_date_input(date_str)
@@ -264,9 +327,13 @@ def create_app():
         hours_str = request.form.get("hours")
         machine_id_raw = request.form.get("machine_id")
         notes = request.form.get("notes")
+        has_machines = Machine.query.filter_by(project_id=project.id).count() > 0
 
         if not hours_str:
             flash("Hours are required.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
+        if has_machines and not machine_id_raw:
+            flash("Select a machine / asset # for this time entry.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
 
         entry_date = parse_date_input(date_str)

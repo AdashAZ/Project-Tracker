@@ -65,12 +65,7 @@
 
     <div class="form-group">
       <label for="due_date">Due Date</label>
-      <input
-        type="date"
-        id="due_date"
-        name="due_date"
-        value="{{ project.due_date.isoformat() if project.due_date else '' }}"
-      >
+      <input type="date" id="due_date" name="due_date" value="{{ project.due_date.isoformat() if project.due_date else '' }}">
     </div>
 
     <div class="form-group">
@@ -85,17 +80,66 @@
 
     <div class="form-group">
       <label for="quoted_hours_total">Quoted Hours (Total)</label>
-      <input
-        type="number"
-        step="0.1"
-        id="quoted_hours_total"
-        name="quoted_hours_total"
-        value="{{ project.quoted_hours_total or 0 }}"
-      >
+      <input type="number" step="0.1" id="quoted_hours_total" name="quoted_hours_total" value="{{ project.quoted_hours_total or 0 }}">
     </div>
 
     <button type="submit">Save Changes</button>
   </form>
+</section>
+
+<section id="machines" class="machines">
+  <h2>Machines / Asset #s</h2>
+
+  <form method="post" action="{{ url_for('add_machine', project_id=project.id) }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <div class="form-inline">
+      <label for="machine_name">Machine / Asset # *</label>
+      <input type="text" id="machine_name" name="machine_name" required>
+      <button type="submit">Add Machine</button>
+    </div>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Machine / Asset #</th>
+        <th>Tracked Hours</th>
+        <th>Entries</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for machine in machines %}
+      <tr>
+        <td>{{ machine.machine_name }}</td>
+        <td>{{ "%.1f"|format(machine_hours.get(machine.id, 0.0)) }}</td>
+        <td>{{ machine_entry_counts.get(machine.id, 0) }}</td>
+        <td class="row-actions">
+          <a href="{{ url_for('project_detail', project_id=project.id, edit_machine=machine.id) }}#machines">Edit</a>
+          <form method="post" action="{{ url_for('delete_machine', project_id=project.id, machine_id=machine.id) }}" onsubmit="return confirm('Delete this machine / asset #? Linked time entries will keep data but lose machine link.');">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-link-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% if edit_machine_id == machine.id %}
+      <tr class="edit-row">
+        <td colspan="4">
+          <form method="post" action="{{ url_for('update_machine', project_id=project.id, machine_id=machine.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="form-inline">
+              <label for="edit-machine-name-{{ machine.id }}">Machine / Asset # *</label>
+              <input type="text" id="edit-machine-name-{{ machine.id }}" name="machine_name" value="{{ machine.machine_name }}" required>
+              <button type="submit">Save</button>
+              <a href="{{ url_for('project_detail', project_id=project.id) }}#machines">Cancel</a>
+            </div>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
 </section>
 
 <section id="time-entries" class="time-entries">
@@ -113,7 +157,7 @@
       <label for="hours">Hours *</label>
       <input type="number" step="0.1" id="hours" name="hours" required>
 
-      <label for="machine_id">Machine (optional)</label>
+      <label for="machine_id">Machine (required when machines exist)</label>
       <select id="machine_id" name="machine_id">
         <option value="">-- None --</option>
         {% for machine in machines %}
