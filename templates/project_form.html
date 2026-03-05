@@ -6,6 +6,8 @@
 <h1>New Project</h1>
 
 <form method="post">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
   <div class="form-group">
     <label for="customer">Customer *</label>
     <input type="text" id="customer" name="customer" required />
@@ -38,30 +40,22 @@
 
   <div class="form-group">
     <label for="quoted_hours_total">Quoted Hours (Total)</label>
-    <input
-      type="number"
-      step="0.1"
-      id="quoted_hours_total"
-      name="quoted_hours_total"
-      value="0"
-    />
+    <input type="number" step="0.1" id="quoted_hours_total" name="quoted_hours_total" value="0" />
   </div>
 
-<div class="form-group">
-  <label for="machines">Machines / Asset #s (one per line, optional)</label>
-  <textarea
-    id="machines"
-    name="machines"
-    rows="3"
-    placeholder="e.g.
+  <div class="form-group">
+    <label for="machines">Machines / Asset #s (one per line, optional)</label>
+    <textarea
+      id="machines"
+      name="machines"
+      rows="3"
+      placeholder="e.g.
 Conv 1 - Filler
 Conv 2 - Palletizer
 Asset 100234"
-  ></textarea>
-</div>
+    ></textarea>
+  </div>
 
   <button type="submit">Create Project</button>
 </form>
-
-
 {% endblock %}

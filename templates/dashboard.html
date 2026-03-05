@@ -10,22 +10,10 @@
     <label for="status-filter">Filter by status:</label>
     <select id="status-filter" name="status" onchange="this.form.submit()">
       <option value="" {% if not status_filter %}selected{% endif %}>All</option>
-      <option value="Not Started"
-              {% if status_filter == 'Not Started' %}selected{% endif %}>
-        Not Started
-      </option>
-      <option value="WIP"
-              {% if status_filter == 'WIP' %}selected{% endif %}>
-        WIP
-      </option>
-      <option value="Stopped"
-              {% if status_filter == 'Stopped' %}selected{% endif %}>
-        Stopped
-      </option>
-      <option value="Complete"
-              {% if status_filter == 'Complete' %}selected{% endif %}>
-        Complete
-      </option>
+      <option value="Not Started" {% if status_filter == 'Not Started' %}selected{% endif %}>Not Started</option>
+      <option value="WIP" {% if status_filter == 'WIP' %}selected{% endif %}>WIP</option>
+      <option value="Stopped" {% if status_filter == 'Stopped' %}selected{% endif %}>Stopped</option>
+      <option value="Complete" {% if status_filter == 'Complete' %}selected{% endif %}>Complete</option>
     </select>
   </form>
 </div>
@@ -59,25 +47,13 @@
         {{ project.days_left if project.days_left is not none else '' }}
       </td>
       <td>
-        <form action="{{ url_for('update_project_status', project_id=project.id) }}"
-              method="post">
+        <form action="{{ url_for('update_project_status', project_id=project.id) }}" method="post">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <select name="status" onchange="this.form.submit()">
-            <option value="Not Started"
-                    {% if project.status == 'Not Started' %}selected{% endif %}>
-              Not Started
-            </option>
-            <option value="WIP"
-                    {% if project.status == 'WIP' %}selected{% endif %}>
-              WIP
-            </option>
-            <option value="Stopped"
-                    {% if project.status == 'Stopped' %}selected{% endif %}>
-              Stopped
-            </option>
-            <option value="Complete"
-                    {% if project.status == 'Complete' %}selected{% endif %}>
-              Complete
-            </option>
+            <option value="Not Started" {% if project.status == 'Not Started' %}selected{% endif %}>Not Started</option>
+            <option value="WIP" {% if project.status == 'WIP' %}selected{% endif %}>WIP</option>
+            <option value="Stopped" {% if project.status == 'Stopped' %}selected{% endif %}>Stopped</option>
+            <option value="Complete" {% if project.status == 'Complete' %}selected{% endif %}>Complete</option>
           </select>
         </form>
       </td>

@@ -100,3 +100,29 @@ button {
 .btn-danger:hover {
   background-color: #b71c1c;
 }
+
+.row-actions {
+  white-space: nowrap;
+}
+
+.row-actions form {
+  display: inline-block;
+  margin: 0;
+}
+
+.row-actions a,
+.btn-link-danger {
+  margin-right: 0.4rem;
+}
+
+.btn-link-danger {
+  background: none;
+  border: none;
+  color: #b00020;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.edit-row td {
+  background-color: #fafafa;
+}
