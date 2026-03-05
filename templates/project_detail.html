@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Project {{ project.id }} - Safety Tracker{% endblock %}
+
+{% block content %}
+<h1>Project Detail</h1>
+
+<form
+  method="post"
+  action="{{ url_for('delete_project', project_id=project.id) }}"
+  onsubmit="return confirm('Are you sure you want to delete this project and all related data?');"
+  style="margin-bottom: 1rem;"
+>
+  <button type="submit" class="btn btn-danger">
+    Delete Project
+  </button>
+</form>
+
+
+<section class="project-summary">
+  <h2>Summary</h2>
+  <p><strong>Customer:</strong> {{ project.customer }}</p>
+  <p><strong>Location:</strong> {{ project.location }}</p>
+  <p><strong>Product / Line:</strong> {{ project.product_line }}</p>
+  <p><strong>NA# / SO#:</strong> {{ project.na_number }}</p>
+  <p><strong>EDB#:</strong> {{ project.edb_number }}</p>
+  <p><strong>Due Date:</strong> {{ project.due_date or 'N/A' }}</p>
+  <p><strong>Days Left:</strong> {{ project.days_left if project.days_left is not none else 'N/A' }}</p>
+  <p><strong>Status:</strong> {{ project.status }}</p>
+  <p><strong>Quoted Hours:</strong> {{ "%.1f"|format(project.quoted_hours_total or 0) }}</p>
+  <p><strong>Incurred Hours:</strong> {{ "%.1f"|format(project.incurred_hours_total or 0) }}</p>
+  <p><strong>% Used:</strong> {{ "%.1f"|format(project.percent_used) }}%</p>
+</section>
+
+<section class="time-entries">
+  <h2>Time Entries</h2>
+
+  <form method="post" action="{{ url_for('add_time_entry', project_id=project.id) }}">
+    <div class="form-inline">
+      <label for="date">Date</label>
+      <input type="date" id="date" name="date">
+
+      <label for="work_type">Work Type</label>
+      <input type="text" id="work_type" name="work_type" placeholder="RA On-site">
+
+      <label for="hours">Hours *</label>
+      <input type="number" step="0.1" id="hours" name="hours" required>
+
+      <label for="machine_id">Machine (optional)</label>
+      <select id="machine_id" name="machine_id">
+        <option value="">-- None --</option>
+        {% for machine in machines %}
+        <option value="{{ machine.id }}">{{ machine.machine_name }}</option>
+        {% endfor %}
+      </select>
+
+      <label for="notes">Notes</label>
+      <input type="text" id="notes" name="notes">
+
+      <button type="submit">Add Entry</button>
+    </div>
+  </form>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Machine</th>
+        <th>Work Type</th>
+        <th>Hours</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in time_entries %}
+      <tr>
+        <td>{{ entry.date or '' }}</td>
+        <td>{{ entry.machine.machine_name if entry.machine else '' }}</td>
+        <td>{{ entry.work_type }}</td>
+        <td>{{ "%.1f"|format(entry.hours) }}</td>
+        <td>{{ entry.notes }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="comments">
+  <h2>Comments</h2>
+
+  <form method="post" action="{{ url_for('add_comment', project_id=project.id) }}">
+    <div class="form-inline">
+      <label for="author">Author</label>
+      <input type="text" id="author" name="author" placeholder="Your name">
+
+      <label for="comment">Comment *</label>
+      <input type="text" id="comment" name="comment" required>
+
+      <button type="submit">Add Comment</button>
+    </div>
+  </form>
+
+  <ul class="comment-list">
+    {% for c in comments %}
+    <li>
+      <strong>{{ c.created_at }} – {{ c.author or 'System' }}:</strong> {{ c.comment }}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% endblock %}

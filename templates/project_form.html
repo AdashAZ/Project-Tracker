@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}New Project - Safety Tracker{% endblock %}
+
+{% block content %}
+<h1>New Project</h1>
+
+<form method="post">
+  <div class="form-group">
+    <label for="customer">Customer *</label>
+    <input type="text" id="customer" name="customer" required />
+  </div>
+
+  <div class="form-group">
+    <label for="location">Location</label>
+    <input type="text" id="location" name="location" />
+  </div>
+
+  <div class="form-group">
+    <label for="product_line">Product / Line</label>
+    <input type="text" id="product_line" name="product_line" />
+  </div>
+
+  <div class="form-group">
+    <label for="na_number">NA# / SO#</label>
+    <input type="text" id="na_number" name="na_number" />
+  </div>
+
+  <div class="form-group">
+    <label for="edb_number">EDB#</label>
+    <input type="text" id="edb_number" name="edb_number" />
+  </div>
+
+  <div class="form-group">
+    <label for="due_date">Due Date</label>
+    <input type="date" id="due_date" name="due_date" />
+  </div>
+
+  <div class="form-group">
+    <label for="quoted_hours_total">Quoted Hours (Total)</label>
+    <input
+      type="number"
+      step="0.1"
+      id="quoted_hours_total"
+      name="quoted_hours_total"
+      value="0"
+    />
+  </div>
+
+  <button type="submit">Create Project</button>
+</form>
+{% endblock %}

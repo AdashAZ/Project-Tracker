@@ -1,0 +1,102 @@
+/* static/css/styles.css */
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar {
+  background-color: #333;
+  color: #fff;
+  padding: 0.5rem 1rem;
+}
+
+.navbar a {
+  color: #fff;
+  margin-right: 1rem;
+  text-decoration: none;
+}
+
+.container {
+  padding: 1rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+table th,
+table td {
+  border: 1px solid #ddd;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+
+table th {
+  background-color: #f5f5f5;
+}
+
+.overdue {
+  color: #b00020;
+  font-weight: bold;
+}
+
+.flash-messages {
+  margin-bottom: 1rem;
+}
+
+.flash {
+  padding: 0.5rem 0.7rem;
+  margin-bottom: 0.2rem;
+  border-radius: 3px;
+}
+
+.flash-success {
+  background-color: #d7ffd9;
+  border: 1px solid #4caf50;
+}
+
+.flash-error {
+  background-color: #ffd7d7;
+  border: 1px solid #f44336;
+}
+
+.form-group,
+.form-inline {
+  margin-bottom: 0.5rem;
+}
+
+.form-inline > * {
+  margin-right: 0.5rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+.status-complete {
+  background-color: #e6ffe6;
+}
+
+.status-stopped {
+  background-color: #ffe6e6;
+}
+
+.status-wip {
+  background-color: #fff7e6;
+}
+
+.btn-danger {
+  background-color: #c62828;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 3px;
+}
+
+.btn-danger:hover {
+  background-color: #b71c1c;
+}
