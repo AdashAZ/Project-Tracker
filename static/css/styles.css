@@ -309,3 +309,57 @@ button {
 .dash-progress-yellow {
   background-color: #f9a825;
 }
+
+.dashboard-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+}
+
+.dashboard-search-wrap {
+  min-width: 360px;
+  position: relative;
+}
+
+.dashboard-search-wrap input {
+  width: 100%;
+}
+
+.dashboard-search-preview {
+  margin-top: 0.35rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: #fff;
+}
+
+.dashboard-search-item {
+  display: block;
+  padding: 0.35rem 0.5rem;
+  text-decoration: none;
+  color: #1f2937;
+  border-bottom: 1px solid #eee;
+}
+
+.dashboard-search-item:last-child {
+  border-bottom: none;
+}
+
+.dashboard-search-item:hover {
+  background-color: #f8fafc;
+}
+
+.dashboard-search-preview-empty,
+.dashboard-no-matches {
+  padding: 0.45rem 0.5rem;
+  color: #b00020;
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .dashboard-search-wrap {
+    min-width: 100%;
+  }
+}

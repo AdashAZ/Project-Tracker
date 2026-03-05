@@ -5,10 +5,10 @@
 {% block content %}
 <h1>Project Tracking</h1>
 
-<div class="filters">
+<div class="filters dashboard-controls">
   <form method="get" action="{{ url_for('dashboard') }}">
     <label for="status-filter">Filter by status:</label>
-    <select id="status-filter" name="status" onchange="this.form.submit()">
+    <select id="status-filter" name="status">
       <option value="" {% if not status_filter %}selected{% endif %}>All</option>
       <option value="Not Started" {% if status_filter == 'Not Started' %}selected{% endif %}>Not Started</option>
       <option value="WIP" {% if status_filter == 'WIP' %}selected{% endif %}>WIP</option>
@@ -16,7 +16,20 @@
       <option value="Complete" {% if status_filter == 'Complete' %}selected{% endif %}>Complete</option>
     </select>
   </form>
+
+  <div class="dashboard-search-wrap">
+    <label for="dashboard-search">Search projects:</label>
+    <input
+      type="text"
+      id="dashboard-search"
+      placeholder="Type customer, location, machine, or project ref (3+ chars)"
+      autocomplete="off"
+    >
+    <div id="dashboard-search-preview" class="dashboard-search-preview" hidden></div>
+  </div>
 </div>
+
+<div id="dashboard-no-matches" class="dashboard-no-matches" hidden>no matches found</div>
 
 <table id="projects-table">
   <thead>
@@ -34,12 +47,23 @@
   </thead>
   <tbody>
     {% for project in projects %}
-    <tr class="status-{{ project.status|lower|replace(' ', '-') }}">
+    {% set project_ref = project.na_number or project.edb_number or ('Project ' ~ (project.id | string)) %}
+    {% set machine_names = project.machines | map(attribute='machine_name') | join(' ') %}
+    <tr
+      class="status-{{ project.status|lower|replace(' ', '-') }}"
+      data-customer="{{ project.customer or '' }}"
+      data-location="{{ project.location or '' }}"
+      data-project="{{ project_ref }}"
+      data-status="{{ project.status or '' }}"
+      data-due="{{ project.due_date or '' }}"
+      data-machines="{{ machine_names }}"
+      data-href="{{ url_for('project_detail', project_id=project.id) }}"
+    >
       <td>{{ project.customer }}</td>
       <td>{{ project.location }}</td>
       <td>
         <a href="{{ url_for('project_detail', project_id=project.id) }}">
-          {{ project.na_number or project.edb_number or ('Project ' ~ (project.id | string)) }}
+          {{ project_ref }}
         </a>
       </td>
       <td>{{ project.due_date or '' }}</td>
@@ -83,6 +107,3 @@
   </tbody>
 </table>
 {% endblock %}
-
-
-
