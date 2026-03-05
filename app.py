@@ -35,7 +35,15 @@ def create_app():
 
     @app.route("/")
     def dashboard():
-        projects = Project.query.order_by(Project.due_date).all()
+        # Read optional status filter from query string, e.g. /?status=WIP
+        status_filter = request.args.get("status", type=str)
+
+        # Build base query
+        query = Project.query
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+
+        projects = query.order_by(Project.due_date).all()
 
         # Recalculate incurred_hours_total on the fly for each project
         for project in projects:
@@ -43,7 +51,8 @@ def create_app():
             project.incurred_hours_total = total_incurred
             # Note: we don't need to commit this; it's just for display
 
-        return render_template("dashboard.html", projects=projects)
+        # Pass status_filter so the template can keep the dropdown in sync
+        return render_template("dashboard.html", projects=projects, status_filter=status_filter)
 
     @app.route("/projects/new", methods=["GET", "POST"])
     def new_project():

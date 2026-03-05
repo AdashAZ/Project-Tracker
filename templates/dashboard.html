@@ -6,14 +6,28 @@
 <h1>All Projects</h1>
 
 <div class="filters">
-  <label for="status-filter">Filter by status:</label>
-  <select id="status-filter">
-    <option value="">All</option>
-    <option value="Not Started">Not Started</option>
-    <option value="WIP">WIP</option>
-    <option value="Stopped">Stopped</option>
-    <option value="Complete">Complete</option>
-  </select>
+  <form method="get" action="{{ url_for('dashboard') }}">
+    <label for="status-filter">Filter by status:</label>
+    <select id="status-filter" name="status" onchange="this.form.submit()">
+      <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+      <option value="Not Started"
+              {% if status_filter == 'Not Started' %}selected{% endif %}>
+        Not Started
+      </option>
+      <option value="WIP"
+              {% if status_filter == 'WIP' %}selected{% endif %}>
+        WIP
+      </option>
+      <option value="Stopped"
+              {% if status_filter == 'Stopped' %}selected{% endif %}>
+        Stopped
+      </option>
+      <option value="Complete"
+              {% if status_filter == 'Complete' %}selected{% endif %}>
+        Complete
+      </option>
+    </select>
+  </form>
 </div>
 
 <table id="projects-table">
