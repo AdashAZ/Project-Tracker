@@ -510,6 +510,12 @@ def create_app():
                 notes=notes,
             )
         )
+
+        if machine_id_value is not None and hours > 0:
+            machine = Machine.query.filter_by(id=machine_id_value, project_id=project.id).first()
+            if machine and machine.status == "N/S":
+                machine.status = "WIP"
+
         db.session.commit()
         flash("Time entry added.", "success")
 
