@@ -104,6 +104,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const toggleBtn = document.getElementById("toggle-edit-btn");
   const summarySection = document.getElementById("project-summary");
   const editSection = document.getElementById("project-edit");
+  const sectionToggleButtons = Array.from(document.querySelectorAll(".section-toggle-btn"));
+
+  const setSectionVisibility = (sectionId, visible) => {
+    const target = document.getElementById(sectionId);
+    const button = document.querySelector(`.section-toggle-btn[data-target="${sectionId}"]`);
+    if (target) {
+      target.style.display = visible ? "" : "none";
+    }
+    if (button) {
+      button.classList.toggle("is-active", visible);
+    }
+  };
+
+  if (sectionToggleButtons.length > 0) {
+    sectionToggleButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const targetId = button.dataset.target;
+        if (!targetId) return;
+        const target = document.getElementById(targetId);
+        if (!target) return;
+
+        const shouldShow = target.style.display === "none";
+        setSectionVisibility(targetId, shouldShow);
+      });
+    });
+  }
 
   if (toggleBtn && summarySection && editSection) {
     toggleBtn.addEventListener("click", () => {
@@ -111,11 +137,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (isEditing) {
         editSection.style.display = "none";
-        summarySection.style.display = "";
+        setSectionVisibility("project-summary", true);
         toggleBtn.textContent = "Edit Project";
       } else {
         editSection.style.display = "";
-        summarySection.style.display = "none";
+        setSectionVisibility("project-summary", false);
         toggleBtn.textContent = "Cancel Edit";
       }
     });
