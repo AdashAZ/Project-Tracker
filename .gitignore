@@ -1,4 +1,6 @@
-﻿__pycache__/
+__pycache__/
 *.pyc
-instance/app.db
-.env"@ | Out-File -Encoding utf8 .gitignore
+.venv/
+.env
+.env.*
+instance/*.db
