@@ -311,7 +311,6 @@
                         {% endfor %}
                       </select>
                       <input type="text" class="machine-work-type-other" value="{{ wt.other_description }}" placeholder="Describe other work" {% if wt.work_type != 'Other' %}style="display: none;"{% endif %}>
-                      <button type="button" class="btn-mini" data-machine-work-type-remove>Remove</button>
                     </div>
                     {% endfor %}
                   </div>
@@ -519,7 +518,6 @@
         {% endfor %}
       </select>
       <input type="text" class="machine-work-type-other" placeholder="Describe other work" style="display: none;">
-      <button type="button" class="btn-mini" data-machine-work-type-remove>Remove</button>
     </div>
   </template>
 </div>

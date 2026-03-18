@@ -878,7 +878,7 @@ tr:nth-child(even) td {
 
 .machine-work-type-row {
   display: grid;
-  grid-template-columns: minmax(130px, 180px) minmax(160px, 1fr) auto;
+  grid-template-columns: minmax(130px, 180px) minmax(160px, 1fr);
   gap: 0.45rem;
   align-items: center;
 }

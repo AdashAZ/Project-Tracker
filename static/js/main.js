@@ -163,7 +163,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const bindWorkTypeRowInteractions = (row) => {
     const select = row.querySelector(".machine-work-type-select");
     const otherInput = row.querySelector(".machine-work-type-other");
-    const removeBtn = row.querySelector("[data-remove-work-type], [data-machine-work-type-remove]");
     const updateOtherVisibility = () => {
       if (!select || !otherInput) return;
       const showOther = select.value === "Other";
@@ -176,19 +175,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (select) {
       select.addEventListener("change", updateOtherVisibility);
       updateOtherVisibility();
-    }
-
-    if (removeBtn) {
-      removeBtn.addEventListener("click", () => {
-        const list = row.parentElement;
-        row.remove();
-        if (list && list.children.length === 0) {
-          const addBtn = list.parentElement?.querySelector(
-            "[data-add-work-type], [data-machine-work-type-add]"
-          );
-          if (addBtn) addBtn.click();
-        }
-      });
     }
   };
 
