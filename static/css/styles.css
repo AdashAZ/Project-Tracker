@@ -73,12 +73,33 @@ h3 {
   box-shadow: 0 6px 20px rgba(16, 36, 64, 0.24);
 }
 
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .navbar a {
   color: #eff5ff;
   font-weight: 600;
   letter-spacing: 0.02em;
   padding: 0.4rem 0.65rem;
   border-radius: var(--radius-sm);
+}
+
+.nav-logo-link {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem !important;
+}
+
+.nav-logo {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
 }
 
 .navbar a:hover {

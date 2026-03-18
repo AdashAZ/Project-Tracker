@@ -2,17 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>{% block title %}Safety Tracker{% endblock %}</title>
+    <title>{% block title %}Project Tracker{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='android-chrome-512x512.png') }}">
   </head>
 
   <body>
     <header>
       <nav class="navbar">
-        <a href="{{ url_for('dashboard') }}">Dashboard</a>
-        <a href="{{ url_for('new_project') }}">New Project</a>
+        <div class="nav-left">
+          <a href="{{ url_for('dashboard') }}">Dashboard</a>
+          <a href="{{ url_for('new_project') }}">New Project</a>
+        </div>
+        <a
+          class="nav-logo-link"
+          href="{{ url_for('dashboard') }}"
+          aria-label="Go to Dashboard"
+          title="Dashboard"
+        >
+          <img
+            class="nav-logo"
+            src="{{ url_for('static', filename='favicon-32x32.png') }}"
+            alt="Project Tracker"
+          >
+        </a>
       </nav>
     </header>
 

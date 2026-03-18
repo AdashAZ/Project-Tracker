@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Project {{ project.id }} - Safety Tracker{% endblock %}
+{% block title %}Project {{ project.id }} - Project Details{% endblock %}
 
 {% block content %}
 {% set project_ref = project.na_number or project.edb_number or ('Project ' ~ (project.id | string)) %}
