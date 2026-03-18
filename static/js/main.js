@@ -95,6 +95,35 @@ document.addEventListener("DOMContentLoaded", () => {
       searchInput.addEventListener("input", applyDashboardFilters);
     }
 
+    const isInteractiveTarget = (target) =>
+      Boolean(target.closest("a, button, select, option, input, textarea, label, form"));
+
+    const isStatusCellTarget = (target) => Boolean(target.closest("td.status-cell"));
+
+    const openRowHref = (row, newTab = false) => {
+      const href = row.dataset.href;
+      if (!href) return;
+      if (newTab) {
+        window.open(href, "_blank", "noopener");
+      } else {
+        window.location.href = href;
+      }
+    };
+
+    rows.forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (isStatusCellTarget(event.target) || isInteractiveTarget(event.target)) return;
+        openRowHref(row, event.ctrlKey || event.metaKey);
+      });
+
+      row.addEventListener("auxclick", (event) => {
+        if (event.button !== 1) return;
+        if (isStatusCellTarget(event.target) || isInteractiveTarget(event.target)) return;
+        event.preventDefault();
+        openRowHref(row, true);
+      });
+    });
+
     applyDashboardFilters();
   }
 

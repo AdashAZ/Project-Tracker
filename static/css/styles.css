@@ -312,6 +312,15 @@ tr:nth-child(even) td {
   border-color: #ffb1a0;
 }
 
+#projects-table tbody tr[data-href] td {
+  cursor: pointer;
+}
+
+#projects-table tbody tr[data-href] td.status-cell,
+#projects-table tbody tr[data-href] td.status-cell * {
+  cursor: default;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
