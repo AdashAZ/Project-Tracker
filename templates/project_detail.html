@@ -232,7 +232,7 @@
           {% endif %}
           {% set machine_pct_fill = 100 if machine_pct_raw > 100 else (0 if machine_pct_raw < 0 else machine_pct_raw) %}
 
-          <tr class="{% if machine_row_complete.get(machine.id) %}machine-complete-row{% endif %}">
+          <tr class="machine-status-{{ machine.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_row_complete.get(machine.id) %} machine-complete-row{% endif %}">
             <td>{{ machine.machine_name }}</td>
             <td>
               <form method="post" action="{{ url_for('update_machine_status', project_id=project.id, machine_id=machine.id) }}">
