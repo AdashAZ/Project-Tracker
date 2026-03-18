@@ -14,6 +14,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const rows = Array.from(projectsTable.querySelectorAll("tbody tr"));
 
     const norm = (value) => (value || "").toString().toLowerCase().trim();
+    const normCompact = (value) => norm(value).replace(/[^a-z0-9]/g, "");
+    const splitMachineList = (value) =>
+      (value || "")
+        .split("||")
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+    const fieldMatchesQuery = (fieldValue, queryRaw, queryCompact) => {
+      const fieldRaw = norm(fieldValue);
+      if (fieldRaw.includes(queryRaw)) return true;
+      if (!queryCompact) return false;
+      return normCompact(fieldRaw).includes(queryCompact);
+    };
 
     const renderPreview = (matchedRows, query) => {
       if (!searchPreview) return;
@@ -39,7 +52,9 @@ document.addEventListener("DOMContentLoaded", () => {
           const project = row.dataset.project || "";
           const status = row.dataset.status || "";
           const due = row.dataset.due || "";
-          const text = `${customer} | ${location} | ${project} | ${status} | ${due}`;
+          const machineMatch = row.dataset.machineMatch || "";
+          const machineText = machineMatch ? ` | Machine: ${machineMatch}` : "";
+          const text = `${customer} | ${location} | ${project} | ${status} | ${due}${machineText}`;
           return `<a class="dashboard-search-item" href="${href}">${text}</a>`;
         })
         .join("");
@@ -50,26 +65,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const applyDashboardFilters = () => {
       const selectedStatus = norm(statusFilter ? statusFilter.value : "");
-      const query = norm(searchInput ? searchInput.value : "");
-      const queryActive = query.length >= 3;
+      const queryRaw = norm(searchInput ? searchInput.value : "");
+      const queryCompact = normCompact(queryRaw);
+      const queryActive = queryRaw.length >= 3;
 
       const matchedRows = [];
       let visibleCount = 0;
 
       rows.forEach((row) => {
         const status = norm(row.dataset.status);
-        const customer = norm(row.dataset.customer);
-        const location = norm(row.dataset.location);
-        const project = norm(row.dataset.project);
-        const machines = norm(row.dataset.machines);
+        const customer = row.dataset.customer || "";
+        const location = row.dataset.location || "";
+        const project = row.dataset.project || "";
+        const machinesJoined = row.dataset.machines || "";
+        const machineList = splitMachineList(row.dataset.machineList || "");
 
         const statusMatches = !selectedStatus || status === selectedStatus;
-        const queryMatches =
-          !queryActive ||
-          customer.includes(query) ||
-          location.includes(query) ||
-          project.includes(query) ||
-          machines.includes(query);
+        let machineMatch = "";
+        let queryMatches = true;
+
+        if (queryActive) {
+          const nonMachineMatch =
+            fieldMatchesQuery(customer, queryRaw, queryCompact) ||
+            fieldMatchesQuery(location, queryRaw, queryCompact) ||
+            fieldMatchesQuery(project, queryRaw, queryCompact);
+
+          const machineMatchFound = fieldMatchesQuery(machinesJoined, queryRaw, queryCompact);
+          if (machineMatchFound) {
+            machineMatch =
+              machineList.find((machineName) => fieldMatchesQuery(machineName, queryRaw, queryCompact)) || "";
+          }
+
+          queryMatches = nonMachineMatch || machineMatchFound;
+        }
+
+        row.dataset.machineMatch = machineMatch;
 
         const shouldShow = statusMatches && queryMatches;
         row.style.display = shouldShow ? "" : "none";
@@ -84,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
         noMatches.hidden = !(queryActive && visibleCount === 0);
       }
 
-      renderPreview(matchedRows, query);
+      renderPreview(matchedRows, queryRaw);
     };
 
     if (statusFilter) {

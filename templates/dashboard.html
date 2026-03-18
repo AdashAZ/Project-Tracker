@@ -50,6 +50,7 @@
     {% for project in projects %}
     {% set project_ref = project.na_number or project.edb_number or ('Project ' ~ (project.id | string)) %}
     {% set machine_names = project.machines | map(attribute='machine_name') | join(' ') %}
+    {% set machine_name_list = project.machines | map(attribute='machine_name') | join('||') %}
     <tr
       class="status-{{ project.status|lower|replace('/', '-')|replace(' ', '-') }}"
       data-customer="{{ project.customer or '' }}"
@@ -58,6 +59,7 @@
       data-status="{{ project.status or '' }}"
       data-due="{{ project.due_date or '' }}"
       data-machines="{{ machine_names }}"
+      data-machine-list="{{ machine_name_list }}"
       data-href="{{ url_for('project_detail', project_id=project.id) }}"
     >
       <td>{{ project.customer }}</td>
