@@ -20,8 +20,8 @@ from markupsafe import Markup, escape
 
 from models import db, Project, Machine, TimeEntry, Comment
 
-ALLOWED_STATUSES = {"Not Started", "WIP", "Stopped", "Complete"}
-MACHINE_STATUS_OPTIONS = ["WIP", "Stopped", "Completed", "Review", "N/A"]
+ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
+MACHINE_STATUS_OPTIONS = ["N/S", "WIP", "Stopped", "In Review", "Completed"]
 MACHINE_MILESTONE_DEFINITIONS = [
     {
         "key": "cas_approval",
@@ -235,7 +235,7 @@ def create_app():
             if machines_raw:
                 machine_names = [line.strip() for line in machines_raw.splitlines() if line.strip()]
                 for name in machine_names:
-                    db.session.add(Machine(project_id=project.id, machine_name=name, status="N/A"))
+                    db.session.add(Machine(project_id=project.id, machine_name=name, status="N/S"))
                 db.session.commit()
 
             flash("Project created.", "success")
@@ -313,7 +313,7 @@ def create_app():
             flash("Machine / Asset # cannot be empty.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        db.session.add(Machine(project_id=project.id, machine_name=machine_name, status="N/A"))
+        db.session.add(Machine(project_id=project.id, machine_name=machine_name, status="N/S"))
         db.session.commit()
 
         flash("Machine / Asset # added.", "success")
@@ -683,7 +683,7 @@ def ensure_machine_schema():
     }
 
     required_cols = {
-        "status": "TEXT DEFAULT 'N/A'",
+        "status": "TEXT DEFAULT 'N/S'",
         "report_cas_approval_date": "DATE",
         "report_sent_customer_date": "DATE",
         "report_sent_review_edb_date": "DATE",
@@ -693,6 +693,36 @@ def ensure_machine_schema():
     for col_name, col_def in required_cols.items():
         if col_name not in existing_cols:
             db.session.execute(text(f"ALTER TABLE machines ADD COLUMN {col_name} {col_def}"))
+
+    # Normalize legacy status values to the current vocabulary.
+    db.session.execute(
+        text(
+            """
+            UPDATE projects
+               SET status = CASE
+                 WHEN status IN ('Not Started', 'N/A') THEN 'N/S'
+                 WHEN status = 'Review' THEN 'In Review'
+                 WHEN status = 'Complete' THEN 'Completed'
+                 ELSE status
+               END
+             WHERE status IN ('Not Started', 'N/A', 'Review', 'Complete')
+            """
+        )
+    )
+    db.session.execute(
+        text(
+            """
+            UPDATE machines
+               SET status = CASE
+                 WHEN status IN ('Not Started', 'N/A') THEN 'N/S'
+                 WHEN status = 'Review' THEN 'In Review'
+                 WHEN status = 'Complete' THEN 'Completed'
+                 ELSE status
+               END
+             WHERE status IN ('Not Started', 'N/A', 'Review', 'Complete')
+            """
+        )
+    )
 
     db.session.commit()
 

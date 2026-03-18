@@ -10,10 +10,11 @@
     <label for="status-filter">Filter by status:</label>
     <select id="status-filter" name="status">
       <option value="" {% if not status_filter %}selected{% endif %}>All</option>
-      <option value="Not Started" {% if status_filter == 'Not Started' %}selected{% endif %}>Not Started</option>
+      <option value="N/S" {% if status_filter == 'N/S' %}selected{% endif %}>N/S</option>
       <option value="WIP" {% if status_filter == 'WIP' %}selected{% endif %}>WIP</option>
       <option value="Stopped" {% if status_filter == 'Stopped' %}selected{% endif %}>Stopped</option>
-      <option value="Complete" {% if status_filter == 'Complete' %}selected{% endif %}>Complete</option>
+      <option value="In Review" {% if status_filter == 'In Review' %}selected{% endif %}>In Review</option>
+      <option value="Completed" {% if status_filter == 'Completed' %}selected{% endif %}>Completed</option>
     </select>
   </form>
 
@@ -50,7 +51,7 @@
     {% set project_ref = project.na_number or project.edb_number or ('Project ' ~ (project.id | string)) %}
     {% set machine_names = project.machines | map(attribute='machine_name') | join(' ') %}
     <tr
-      class="status-{{ project.status|lower|replace(' ', '-') }}"
+      class="status-{{ project.status|lower|replace('/', '-')|replace(' ', '-') }}"
       data-customer="{{ project.customer or '' }}"
       data-location="{{ project.location or '' }}"
       data-project="{{ project_ref }}"
@@ -74,10 +75,11 @@
         <form action="{{ url_for('update_project_status', project_id=project.id) }}" method="post">
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <select name="status" onchange="this.form.submit()">
-            <option value="Not Started" {% if project.status == 'Not Started' %}selected{% endif %}>Not Started</option>
+            <option value="N/S" {% if project.status == 'N/S' %}selected{% endif %}>N/S</option>
             <option value="WIP" {% if project.status == 'WIP' %}selected{% endif %}>WIP</option>
             <option value="Stopped" {% if project.status == 'Stopped' %}selected{% endif %}>Stopped</option>
-            <option value="Complete" {% if project.status == 'Complete' %}selected{% endif %}>Complete</option>
+            <option value="In Review" {% if project.status == 'In Review' %}selected{% endif %}>In Review</option>
+            <option value="Completed" {% if project.status == 'Completed' %}selected{% endif %}>Completed</option>
           </select>
         </form>
       </td>

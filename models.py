@@ -17,7 +17,7 @@ class Project(db.Model):
     edb_number = db.Column(db.String(100))
 
     due_date = db.Column(db.Date)
-    status = db.Column(db.String(50), default="Not Started")
+    status = db.Column(db.String(50), default="N/S")
 
     quoted_hours_total = db.Column(db.Float, default=0.0)
     incurred_hours_total = db.Column(db.Float, default=0.0)
@@ -66,7 +66,7 @@ class Machine(db.Model):
     )
 
     machine_name = db.Column(db.String(255), nullable=False)
-    status = db.Column(db.String(50), default="N/A")
+    status = db.Column(db.String(50), default="N/S")
 
     report_cas_approval_date = db.Column(db.Date, nullable=True)
     report_sent_customer_date = db.Column(db.Date, nullable=True)

@@ -279,16 +279,37 @@ tr:nth-child(even) td {
   background-color: #eff4fb;
 }
 
-.status-complete {
-  background-color: #dbf4e5;
+#projects-table tbody tr.status-completed td {
+  background-color: #e3f4e8 !important;
 }
 
-.status-stopped {
-  background-color: #fde9e8;
+#projects-table tbody tr.status-wip td {
+  background-color: #ccccff !important;
 }
 
-.status-wip {
-  background-color: #fff4de;
+#projects-table tbody tr.status-stopped td {
+  background-color: #ff3300 !important;
+  color: #ffffff !important;
+}
+
+#projects-table tbody tr.status-in-review td {
+  background-color: #4fd1ff !important;
+}
+
+#projects-table tbody tr.status-n-s td {
+  background-color: #ffc000 !important;
+}
+
+#projects-table tbody tr.status-stopped a,
+#projects-table tbody tr.status-stopped .btn-link-danger,
+#projects-table tbody tr.status-stopped .dash-progress-text {
+  color: #ffffff !important;
+}
+
+#projects-table tbody tr.status-stopped select {
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #1b1b1b;
+  border-color: #ffb1a0;
 }
 
 .status-pill {
@@ -302,37 +323,34 @@ tr:nth-child(even) td {
   border: 1px solid transparent;
 }
 
-.status-pill-not-started {
-  background-color: #ecf1f8;
-  border-color: #c8d5e8;
-  color: #385271;
+.status-pill-n-s {
+  background-color: #ffc000;
+  border-color: #d29d00;
+  color: #573f00;
 }
 
-.status-pill-wip,
-.status-pill-review {
-  background-color: #fff4de;
-  border-color: #f0cd82;
-  color: #8d6200;
+.status-pill-wip {
+  background-color: #ccccff;
+  border-color: #a1a1e2;
+  color: #2f2f68;
 }
 
 .status-pill-stopped {
-  background-color: #fde8e8;
-  border-color: #eda8a8;
-  color: #9f2828;
+  background-color: #ff3300;
+  border-color: #d22900;
+  color: #ffffff;
 }
 
-.status-pill-complete,
+.status-pill-in-review {
+  background-color: #4fd1ff;
+  border-color: #2ba8d6;
+  color: #083f52;
+}
+
 .status-pill-completed {
-  background-color: #dff3e8;
-  border-color: #90d0ad;
+  background-color: #e3f4e8;
+  border-color: #92c7a1;
   color: #1f6f4a;
-}
-
-.status-pill-n-a,
-[class*="status-pill-n/"] {
-  background-color: #e8edf5;
-  border-color: #c2cede;
-  color: #4c5f79;
 }
 
 /* Dashboard progress bars */

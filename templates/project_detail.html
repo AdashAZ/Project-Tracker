@@ -19,7 +19,7 @@
       <div class="hero-meta">
         <span class="meta-badge">Customer: {{ project.customer or 'N/A' }}</span>
         <span class="meta-badge">Location: {{ project.location or 'N/A' }}</span>
-        <span class="status-pill status-pill-{{ project.status|lower|replace(' ', '-') }}">{{ project.status }}</span>
+        <span class="status-pill status-pill-{{ project.status|lower|replace('/', '-')|replace(' ', '-') }}">{{ project.status }}</span>
         <span class="meta-badge">Due: {{ project.due_date or 'N/A' }}</span>
       </div>
     </div>
@@ -114,7 +114,7 @@
       <article class="summary-panel">
         <h3>Schedule & Health</h3>
         <dl class="summary-list">
-          <div><dt>Status</dt><dd><span class="status-pill status-pill-{{ project.status|lower|replace(' ', '-') }}">{{ project.status }}</span></dd></div>
+          <div><dt>Status</dt><dd><span class="status-pill status-pill-{{ project.status|lower|replace('/', '-')|replace(' ', '-') }}">{{ project.status }}</span></dd></div>
           <div><dt>Due Date</dt><dd>{{ project.due_date or 'N/A' }}</dd></div>
           <div><dt>Hours Remaining</dt><dd>{{ "%.1f"|format(remaining_total) }}</dd></div>
           <div>
@@ -175,10 +175,11 @@
       <div class="form-group">
         <label for="status">Status</label>
         <select id="status" name="status">
-          <option value="Not Started" {% if project.status == 'Not Started' %}selected{% endif %}>Not Started</option>
+          <option value="N/S" {% if project.status == 'N/S' %}selected{% endif %}>N/S</option>
           <option value="WIP" {% if project.status == 'WIP' %}selected{% endif %}>WIP</option>
           <option value="Stopped" {% if project.status == 'Stopped' %}selected{% endif %}>Stopped</option>
-          <option value="Complete" {% if project.status == 'Complete' %}selected{% endif %}>Complete</option>
+          <option value="In Review" {% if project.status == 'In Review' %}selected{% endif %}>In Review</option>
+          <option value="Completed" {% if project.status == 'Completed' %}selected{% endif %}>Completed</option>
         </select>
       </div>
 
