@@ -823,6 +823,135 @@ tr:nth-child(even) td {
   width: 100%;
 }
 
+.machine-col-worktype-hours {
+  min-width: 220px;
+}
+
+.machine-worktype-hours-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.machine-worktype-hours-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.55rem;
+  font-size: 0.8rem;
+}
+
+.machine-worktype-hours-list li span {
+  color: inherit;
+}
+
+.machine-worktype-hours-list li strong {
+  color: inherit;
+}
+
+.machine-worktype-empty {
+  font-size: 0.78rem;
+  color: #5b6f88;
+}
+
+.machine-work-types-editor {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem;
+  background-color: #f9fbff;
+  margin-bottom: 0.75rem;
+}
+
+.machine-work-types-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.machine-work-types-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.machine-work-type-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 180px) minmax(160px, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.machine-work-type-row label {
+  display: none;
+}
+
+.machine-work-type-select {
+  min-width: 0;
+}
+
+.machine-work-type-other {
+  min-width: 0;
+}
+
+.machine-builder-list {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 0.55rem;
+  inline-size: max-content;
+  max-inline-size: 100%;
+}
+
+.machine-builder-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem;
+  background-color: #f9fbff;
+}
+
+.machine-builder-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.3rem;
+}
+
+.machine-builder-top label {
+  margin: 0;
+}
+
+.machine-remove-btn {
+  width: auto;
+  min-width: 0;
+  padding: 0.16rem 0.52rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.machine-name-input {
+  width: min(100%, 620px);
+  margin-bottom: 0.5rem;
+}
+
+.machine-work-types {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+}
+
+.add-machine-btn {
+  border: 1px dashed #6f86a1;
+  background: linear-gradient(180deg, #f4f7fb, #e2e9f2);
+  color: #223447;
+  font-weight: 700;
+}
+
+.add-machine-btn:hover {
+  background: linear-gradient(180deg, #ffffff, #e8eef6);
+}
+
 .machine-hours-meta {
   display: flex;
   justify-content: space-between;
@@ -874,6 +1003,7 @@ tr:nth-child(even) td {
   padding: 0.15rem 0.4rem;
   font-size: 0.73rem;
   line-height: 1.2;
+  inline-size: fit-content;
 }
 
 .milestone-done {
@@ -967,6 +1097,10 @@ tr:nth-child(even) td {
   }
 
   .machine-edit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .machine-work-type-row {
     grid-template-columns: 1fr;
   }
 }

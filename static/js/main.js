@@ -158,6 +158,284 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---------------------------
+  // Shared helpers: machine work type rows
+  // ---------------------------
+  const bindWorkTypeRowInteractions = (row) => {
+    const select = row.querySelector(".machine-work-type-select");
+    const otherInput = row.querySelector(".machine-work-type-other");
+    const removeBtn = row.querySelector("[data-remove-work-type], [data-machine-work-type-remove]");
+    const updateOtherVisibility = () => {
+      if (!select || !otherInput) return;
+      const showOther = select.value === "Other";
+      otherInput.style.display = showOther ? "" : "none";
+      if (!showOther) {
+        otherInput.value = "";
+      }
+    };
+
+    if (select) {
+      select.addEventListener("change", updateOtherVisibility);
+      updateOtherVisibility();
+    }
+
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => {
+        const list = row.parentElement;
+        row.remove();
+        if (list && list.children.length === 0) {
+          const addBtn = list.parentElement?.querySelector(
+            "[data-add-work-type], [data-machine-work-type-add]"
+          );
+          if (addBtn) addBtn.click();
+        }
+      });
+    }
+  };
+
+  const serializeWorkTypeRows = (rows) => {
+    const payload = [];
+    let hasError = false;
+
+    rows.forEach((row) => {
+      const select = row.querySelector(".machine-work-type-select");
+      const otherInput = row.querySelector(".machine-work-type-other");
+      if (!select) return;
+
+      const workType = (select.value || "").trim();
+      const otherDescription = (otherInput?.value || "").trim();
+
+      if (!workType) {
+        return;
+      }
+
+      if (workType === "Other" && !otherDescription) {
+        hasError = true;
+        return;
+      }
+
+      payload.push({ work_type: workType, other_description: otherDescription });
+    });
+
+    if (payload.length === 0) {
+      hasError = true;
+    }
+
+    return { payload, hasError };
+  };
+
+  // ---------------------------
+  // New project: dynamic machines + work types
+  // ---------------------------
+  const newProjectForm = document.getElementById("new-project-form");
+  if (newProjectForm) {
+    const machineList = document.getElementById("machine-builder-list");
+    const machineTemplate = document.getElementById("machine-builder-template");
+    const workTypeTemplate = document.getElementById("machine-work-type-template");
+    const addMachineBtn = document.getElementById("add-machine-row-btn");
+    const machinesPayloadInput = document.getElementById("machines_payload");
+
+    const addWorkTypeRow = (machineItem) => {
+      if (!workTypeTemplate || !machineItem) return;
+      const container = machineItem.querySelector("[data-work-types-container]");
+      if (!container) return;
+      const row = workTypeTemplate.content.firstElementChild.cloneNode(true);
+      container.appendChild(row);
+      bindWorkTypeRowInteractions(row);
+    };
+
+    const refreshMachineRemoveButtons = () => {
+      if (!machineList) return;
+      const machineItems = Array.from(machineList.querySelectorAll("[data-machine-item]"));
+      const showRemove = machineItems.length > 1;
+      machineItems.forEach((item) => {
+        const removeBtn = item.querySelector("[data-remove-machine]");
+        if (!removeBtn) return;
+        removeBtn.hidden = !showRemove;
+        removeBtn.disabled = !showRemove;
+      });
+    };
+
+    const bindMachineItem = (machineItem) => {
+      const addWorkTypeBtn = machineItem.querySelector("[data-add-work-type]");
+      const removeMachineBtn = machineItem.querySelector("[data-remove-machine]");
+
+      if (addWorkTypeBtn) {
+        addWorkTypeBtn.addEventListener("click", () => addWorkTypeRow(machineItem));
+      }
+
+      if (removeMachineBtn) {
+        removeMachineBtn.addEventListener("click", () => {
+          machineItem.remove();
+          if (machineList && machineList.querySelectorAll("[data-machine-item]").length === 0) {
+            addMachineBtn?.click();
+          }
+          refreshMachineRemoveButtons();
+        });
+      }
+
+      const existingRows = machineItem.querySelectorAll("[data-work-type-row]");
+      existingRows.forEach((row) => bindWorkTypeRowInteractions(row));
+      if (existingRows.length === 0) {
+        addWorkTypeRow(machineItem);
+      }
+    };
+
+    const addMachineItem = () => {
+      if (!machineTemplate || !machineList) return;
+      const machineItem = machineTemplate.content.firstElementChild.cloneNode(true);
+      machineList.appendChild(machineItem);
+      bindMachineItem(machineItem);
+      refreshMachineRemoveButtons();
+    };
+
+    if (addMachineBtn) {
+      addMachineBtn.addEventListener("click", addMachineItem);
+    }
+
+    if (machineList) {
+      machineList.querySelectorAll("[data-machine-item]").forEach((item) => bindMachineItem(item));
+      refreshMachineRemoveButtons();
+    }
+
+    newProjectForm.addEventListener("submit", (event) => {
+      if (!machineList || !machinesPayloadInput) return;
+
+      const machinePayload = [];
+      let hasError = false;
+
+      machineList.querySelectorAll("[data-machine-item]").forEach((machineItem) => {
+        const nameInput = machineItem.querySelector(".machine-name-input");
+        const machineName = (nameInput?.value || "").trim();
+        if (!machineName) return;
+
+        const workTypeRows = machineItem.querySelectorAll("[data-work-type-row]");
+        const { payload, hasError: rowError } = serializeWorkTypeRows(workTypeRows);
+        if (rowError) {
+          hasError = true;
+          return;
+        }
+
+        machinePayload.push({ machine_name: machineName, work_types: payload });
+      });
+
+      if (hasError) {
+        event.preventDefault();
+        alert("Each machine must include at least one valid work type. 'Other' requires a description.");
+        return;
+      }
+
+      machinesPayloadInput.value = JSON.stringify(machinePayload);
+    });
+  }
+
+  // ---------------------------
+  // Project detail: machine work types + time entry work type selects
+  // ---------------------------
+  const machineWorkTypesMapScript = document.getElementById("machine-work-types-map");
+  let machineWorkTypesMap = {};
+  if (machineWorkTypesMapScript?.textContent) {
+    try {
+      machineWorkTypesMap = JSON.parse(machineWorkTypesMapScript.textContent);
+    } catch {
+      machineWorkTypesMap = {};
+    }
+  }
+
+  const refreshWorkTypeSelectForMachine = (workTypeSelect, machineSelect, preferredValue = "") => {
+    if (!workTypeSelect || !machineSelect) return;
+    const machineId = machineSelect.value || "";
+    const options = (machineWorkTypesMap[machineId] || []).filter(Boolean);
+
+    workTypeSelect.innerHTML = "";
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "";
+    defaultOption.textContent = "-- Select --";
+    workTypeSelect.appendChild(defaultOption);
+
+    if (!machineId) {
+      workTypeSelect.disabled = true;
+      workTypeSelect.required = false;
+    } else if (options.length === 0) {
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "No work types configured";
+      emptyOption.disabled = true;
+      workTypeSelect.appendChild(emptyOption);
+      workTypeSelect.disabled = true;
+      workTypeSelect.required = false;
+    } else {
+      options.forEach((label) => {
+        const option = document.createElement("option");
+        option.value = label;
+        option.textContent = label;
+        workTypeSelect.appendChild(option);
+      });
+      workTypeSelect.disabled = false;
+      workTypeSelect.required = true;
+    }
+
+    const candidateValue = preferredValue || workTypeSelect.dataset.currentValue || "";
+    if (candidateValue && options.includes(candidateValue)) {
+      workTypeSelect.value = candidateValue;
+    } else {
+      workTypeSelect.value = "";
+    }
+  };
+
+  const allWorkTypeSelects = Array.from(document.querySelectorAll(".work-type-select[data-machine-select-id]"));
+  allWorkTypeSelects.forEach((workTypeSelect) => {
+    const machineSelectId = workTypeSelect.dataset.machineSelectId;
+    if (!machineSelectId) return;
+    const machineSelect = document.getElementById(machineSelectId);
+    if (!machineSelect) return;
+
+    const initValue = workTypeSelect.dataset.currentValue || workTypeSelect.value || "";
+    refreshWorkTypeSelectForMachine(workTypeSelect, machineSelect, initValue);
+
+    machineSelect.addEventListener("change", () => {
+      refreshWorkTypeSelectForMachine(workTypeSelect, machineSelect);
+    });
+  });
+
+  const machineWorkTypeRowTemplate = document.getElementById("machine-work-type-row-template");
+  const machineEditors = Array.from(document.querySelectorAll("[data-machine-work-types-editor]"));
+  machineEditors.forEach((editor) => {
+    const list = editor.querySelector("[data-machine-work-types-list]");
+    const addBtn = editor.querySelector("[data-machine-work-type-add]");
+    const form = editor.closest("form");
+    const payloadInput = form?.querySelector(".machine-work-types-payload");
+
+    if (!list || !form || !payloadInput) return;
+
+    const addRow = () => {
+      if (!machineWorkTypeRowTemplate) return;
+      const row = machineWorkTypeRowTemplate.content.firstElementChild.cloneNode(true);
+      list.appendChild(row);
+      bindWorkTypeRowInteractions(row);
+    };
+
+    if (addBtn) {
+      addBtn.addEventListener("click", addRow);
+    }
+
+    list.querySelectorAll("[data-work-type-row]").forEach((row) => bindWorkTypeRowInteractions(row));
+    if (list.querySelectorAll("[data-work-type-row]").length === 0) {
+      addRow();
+    }
+
+    form.addEventListener("submit", (event) => {
+      const rows = list.querySelectorAll("[data-work-type-row]");
+      const { payload, hasError } = serializeWorkTypeRows(rows);
+      if (hasError) {
+        event.preventDefault();
+        alert("Machine must include at least one valid work type. 'Other' requires a description.");
+        return;
+      }
+      payloadInput.value = JSON.stringify(payload);
+    });
+  });
+
+  // ---------------------------
   // Project detail: toggle edit form
   // ---------------------------
   const toggleBtn = document.getElementById("toggle-edit-btn");

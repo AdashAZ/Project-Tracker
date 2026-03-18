@@ -5,7 +5,7 @@
 {% block content %}
 <h1>New Project</h1>
 
-<form method="post">
+<form method="post" id="new-project-form">
   <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
   <div class="form-group">
@@ -44,18 +44,65 @@
   </div>
 
   <div class="form-group">
-    <label for="machines">Machines / Asset #s (one per line, optional)</label>
-    <textarea
-      id="machines"
-      name="machines"
-      rows="3"
-      placeholder="e.g.
-Conv 1 - Filler
-Conv 2 - Palletizer
-Asset 100234"
-    ></textarea>
+    <label>Machines / Asset #s</label>
+    <input type="hidden" id="machines_payload" name="machines_payload" value="[]">
+
+    <div id="machine-builder-list" class="machine-builder-list">
+      <div class="machine-builder-item" data-machine-item>
+        <div class="machine-builder-top">
+          <label>Machine / Asset #</label>
+          <button type="button" class="btn-mini machine-remove-btn" data-remove-machine>Remove</button>
+        </div>
+        <input type="text" class="machine-name-input" placeholder="e.g. Conv 1 - Filler">
+
+        <div class="machine-work-types" data-work-types-container>
+          <div class="machine-work-type-row" data-work-type-row>
+            <label>Work Type *</label>
+            <select class="machine-work-type-select">
+              <option value="">-- Select --</option>
+              {% for work_type in work_type_options %}
+              <option value="{{ work_type }}">{{ work_type }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" class="machine-work-type-other" placeholder="Describe other work" style="display: none;">
+            <button type="button" class="btn-mini" data-remove-work-type>Remove</button>
+          </div>
+        </div>
+
+        <button type="button" class="btn-mini" data-add-work-type>Add Work Type</button>
+      </div>
+    </div>
+
+    <button type="button" id="add-machine-row-btn" class="add-machine-btn">Add Machine</button>
   </div>
 
   <button type="submit">Create Project</button>
 </form>
+
+<template id="machine-builder-template">
+  <div class="machine-builder-item" data-machine-item>
+    <div class="machine-builder-top">
+      <label>Machine / Asset #</label>
+      <button type="button" class="btn-mini machine-remove-btn" data-remove-machine>Remove</button>
+    </div>
+    <input type="text" class="machine-name-input" placeholder="e.g. Asset 100234">
+
+    <div class="machine-work-types" data-work-types-container></div>
+    <button type="button" class="btn-mini" data-add-work-type>Add Work Type</button>
+  </div>
+</template>
+
+<template id="machine-work-type-template">
+  <div class="machine-work-type-row" data-work-type-row>
+    <label>Work Type *</label>
+    <select class="machine-work-type-select">
+      <option value="">-- Select --</option>
+      {% for work_type in work_type_options %}
+      <option value="{{ work_type }}">{{ work_type }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" class="machine-work-type-other" placeholder="Describe other work" style="display: none;">
+    <button type="button" class="btn-mini" data-remove-work-type>Remove</button>
+  </div>
+</template>
 {% endblock %}

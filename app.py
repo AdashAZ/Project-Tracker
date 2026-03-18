@@ -1,5 +1,6 @@
 # app.py
 from datetime import datetime
+import json
 import re
 import os
 import subprocess
@@ -18,10 +19,11 @@ from sqlalchemy import text, case
 from urllib.parse import quote
 from markupsafe import Markup, escape
 
-from models import db, Project, Machine, TimeEntry, Comment
+from models import db, Project, Machine, TimeEntry, Comment, MachineWorkType
 
 ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
 MACHINE_STATUS_OPTIONS = ["N/S", "WIP", "Stopped", "In Review", "Completed"]
+WORK_TYPE_OPTIONS = ["RA", "SC", "VV", "SOL", "Other"]
 MACHINE_MILESTONE_DEFINITIONS = [
     {
         "key": "cas_approval",
@@ -77,6 +79,101 @@ def create_app():
             return float(value)
         except ValueError:
             return None
+
+    def format_work_type_label(work_type: str, other_description: str | None = None):
+        if work_type == "Other":
+            cleaned_other = (other_description or "").strip()
+            if cleaned_other:
+                return f"Other - {cleaned_other}"
+        return work_type
+
+    def parse_work_types_payload(payload_raw: str | None, require_one: bool = True):
+        if not payload_raw:
+            return ([] if not require_one else None), ("At least one work type is required." if require_one else None)
+
+        try:
+            payload = json.loads(payload_raw)
+        except (TypeError, ValueError):
+            return None, "Invalid work type payload."
+
+        if not isinstance(payload, list):
+            return None, "Invalid work type payload."
+
+        parsed = []
+        seen = set()
+        for item in payload:
+            if not isinstance(item, dict):
+                return None, "Invalid work type payload."
+
+            work_type = (item.get("work_type") or "").strip()
+            other_description = (item.get("other_description") or "").strip()
+
+            if work_type not in WORK_TYPE_OPTIONS:
+                return None, "Invalid work type selected."
+
+            if work_type == "Other" and not other_description:
+                return None, "Other work type requires a description."
+
+            key = (work_type, other_description)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            parsed.append(
+                {
+                    "work_type": work_type,
+                    "other_description": other_description or None,
+                    "label": format_work_type_label(work_type, other_description),
+                }
+            )
+
+        if require_one and not parsed:
+            return None, "At least one work type is required."
+
+        return parsed, None
+
+    def parse_new_project_machines_payload(payload_raw: str | None):
+        if not payload_raw:
+            return [], None
+
+        try:
+            payload = json.loads(payload_raw)
+        except (TypeError, ValueError):
+            return None, "Invalid machines payload."
+
+        if not isinstance(payload, list):
+            return None, "Invalid machines payload."
+
+        parsed_machines = []
+        for item in payload:
+            if not isinstance(item, dict):
+                return None, "Invalid machine payload."
+
+            machine_name = (item.get("machine_name") or "").strip()
+            if not machine_name:
+                continue
+
+            work_types_raw = json.dumps(item.get("work_types") or [])
+            parsed_work_types, error = parse_work_types_payload(work_types_raw, require_one=True)
+            if error:
+                return None, f"Machine '{machine_name}': {error}"
+
+            parsed_machines.append({"machine_name": machine_name, "work_types": parsed_work_types})
+
+        return parsed_machines, None
+
+    def get_machine_work_type_rows(machine: Machine):
+        rows = []
+        for item in sorted(machine.work_types, key=lambda wt: wt.id):
+            rows.append(
+                {
+                    "id": item.id,
+                    "work_type": item.work_type,
+                    "other_description": item.other_description or "",
+                    "label": format_work_type_label(item.work_type, item.other_description),
+                }
+            )
+        return rows
 
     def resolve_machine_id(machine_id_raw: str | None, project_id: int):
         if not machine_id_raw:
@@ -205,7 +302,7 @@ def create_app():
             edb_number = request.form.get("edb_number")
             due_date_str = request.form.get("due_date")
             quoted_hours_total = request.form.get("quoted_hours_total") or "0"
-            machines_raw = request.form.get("machines")
+            machines_payload = request.form.get("machines_payload")
 
             if not customer:
                 flash("Customer is required.", "error")
@@ -221,6 +318,11 @@ def create_app():
                 flash("Quoted hours must be a valid number.", "error")
                 return redirect(url_for("new_project"))
 
+            machine_specs, machine_error = parse_new_project_machines_payload(machines_payload)
+            if machine_error:
+                flash(machine_error, "error")
+                return redirect(url_for("new_project"))
+
             project = Project(
                 customer=customer,
                 location=location,
@@ -233,16 +335,26 @@ def create_app():
             db.session.add(project)
             db.session.commit()
 
-            if machines_raw:
-                machine_names = [line.strip() for line in machines_raw.splitlines() if line.strip()]
-                for name in machine_names:
-                    db.session.add(Machine(project_id=project.id, machine_name=name, status="N/S"))
-                db.session.commit()
+            for item in machine_specs:
+                machine = Machine(project_id=project.id, machine_name=item["machine_name"], status="N/S")
+                db.session.add(machine)
+                db.session.flush()
+
+                for wt in item["work_types"]:
+                    db.session.add(
+                        MachineWorkType(
+                            machine_id=machine.id,
+                            work_type=wt["work_type"],
+                            other_description=wt["other_description"],
+                        )
+                    )
+
+            db.session.commit()
 
             flash("Project created.", "success")
             return redirect(url_for("project_detail", project_id=project.id))
 
-        return render_template("project_form.html")
+        return render_template("project_form.html", work_type_options=WORK_TYPE_OPTIONS)
 
     @app.route("/projects/<int:project_id>")
     def project_detail(project_id):
@@ -266,6 +378,44 @@ def create_app():
         project.incurred_hours_total = total_incurred
         machine_hours, machine_entry_counts = compute_machine_stats(machines, time_entries)
         machine_milestones, machine_row_complete = get_machine_milestone_view(machines)
+        machine_work_type_rows = {}
+        machine_work_type_choices = {}
+        machine_work_type_hours = {}
+
+        for machine in machines:
+            work_type_rows = get_machine_work_type_rows(machine)
+            machine_work_type_rows[machine.id] = work_type_rows
+
+            labels = [item["label"] for item in work_type_rows]
+            machine_work_type_choices[machine.id] = labels
+
+            hours_by_label = []
+            for label in labels:
+                total_hours = sum(
+                    (entry.hours or 0.0)
+                    for entry in time_entries
+                    if entry.machine_id == machine.id and (entry.work_type or "") == label
+                )
+                hours_by_label.append({"label": label, "hours": total_hours})
+
+            extra_labels = []
+            for entry in time_entries:
+                if entry.machine_id != machine.id:
+                    continue
+                entry_label = (entry.work_type or "").strip()
+                if not entry_label or entry_label in labels or entry_label in extra_labels:
+                    continue
+                extra_labels.append(entry_label)
+
+            for label in extra_labels:
+                total_hours = sum(
+                    (entry.hours or 0.0)
+                    for entry in time_entries
+                    if entry.machine_id == machine.id and (entry.work_type or "") == label
+                )
+                hours_by_label.append({"label": label, "hours": total_hours})
+
+            machine_work_type_hours[machine.id] = hours_by_label
 
         edit_machine_id = request.args.get("edit_machine", type=int)
         if edit_machine_id and not any(machine.id == edit_machine_id for machine in machines):
@@ -289,7 +439,11 @@ def create_app():
             machine_entry_counts=machine_entry_counts,
             machine_milestones=machine_milestones,
             machine_row_complete=machine_row_complete,
+            machine_work_type_rows=machine_work_type_rows,
+            machine_work_type_choices=machine_work_type_choices,
+            machine_work_type_hours=machine_work_type_hours,
             machine_status_options=MACHINE_STATUS_OPTIONS,
+            work_type_options=WORK_TYPE_OPTIONS,
             milestone_definitions=MACHINE_MILESTONE_DEFINITIONS,
             edit_machine_id=edit_machine_id,
             edit_time_entry_id=edit_time_entry_id,
@@ -317,7 +471,7 @@ def create_app():
         db.session.add(Machine(project_id=project.id, machine_name=machine_name, status="N/S"))
         db.session.commit()
 
-        flash("Machine / Asset # added.", "success")
+        flash("Machine / Asset # added. Use Edit to configure work types.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/machines/<int:machine_id>/update", methods=["POST"])
@@ -336,6 +490,7 @@ def create_app():
         sent_customer_raw = request.form.get("report_sent_customer_date")
         sent_review_edb_raw = request.form.get("report_sent_review_edb_date")
         released_edb_raw = request.form.get("released_in_edb_date")
+        work_types_payload_raw = request.form.get("work_types_payload")
 
         if not machine_name:
             flash("Machine / Asset # cannot be empty.", "error")
@@ -343,6 +498,11 @@ def create_app():
 
         if status not in MACHINE_STATUS_OPTIONS:
             flash("Invalid machine status value.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        parsed_work_types, work_types_error = parse_work_types_payload(work_types_payload_raw, require_one=True)
+        if work_types_error:
+            flash(work_types_error, "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
         quoted_hours = parse_float_input(quoted_hours_raw)
@@ -385,6 +545,17 @@ def create_app():
         machine.report_sent_customer_date = sent_customer
         machine.report_sent_review_edb_date = sent_review_edb
         machine.released_in_edb_date = released_edb
+
+        MachineWorkType.query.filter_by(machine_id=machine.id).delete()
+        for wt in parsed_work_types:
+            db.session.add(
+                MachineWorkType(
+                    machine_id=machine.id,
+                    work_type=wt["work_type"],
+                    other_description=wt["other_description"],
+                )
+            )
+
         db.session.commit()
 
         flash("Machine row updated.", "success")
@@ -445,6 +616,7 @@ def create_app():
 
         TimeEntry.query.filter_by(project_id=project.id, machine_id=machine.id).update({"machine_id": None})
         Comment.query.filter_by(project_id=project.id, machine_id=machine.id).update({"machine_id": None})
+        MachineWorkType.query.filter_by(machine_id=machine.id).delete()
 
         db.session.delete(machine)
         db.session.commit()
@@ -500,6 +672,17 @@ def create_app():
             flash(machine_error, "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
 
+        machine_obj = None
+        if machine_id_value is not None:
+            machine_obj = Machine.query.filter_by(id=machine_id_value, project_id=project.id).first()
+            allowed_work_types = [item["label"] for item in get_machine_work_type_rows(machine_obj)]
+            if not allowed_work_types:
+                flash("Selected machine has no configured work types. Edit machine and add work types first.", "error")
+                return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
+            if work_type not in allowed_work_types:
+                flash("Select a valid work type for the selected machine.", "error")
+                return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
+
         db.session.add(
             TimeEntry(
                 project_id=project.id,
@@ -511,10 +694,8 @@ def create_app():
             )
         )
 
-        if machine_id_value is not None and hours > 0:
-            machine = Machine.query.filter_by(id=machine_id_value, project_id=project.id).first()
-            if machine and machine.status == "N/S":
-                machine.status = "WIP"
+        if machine_obj and hours > 0 and machine_obj.status == "N/S":
+            machine_obj.status = "WIP"
 
         db.session.commit()
         flash("Time entry added.", "success")
@@ -554,6 +735,16 @@ def create_app():
         if machine_error:
             flash(machine_error, "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
+
+        if machine_id_value is not None:
+            machine_obj = Machine.query.filter_by(id=machine_id_value, project_id=project.id).first()
+            allowed_work_types = [item["label"] for item in get_machine_work_type_rows(machine_obj)]
+            if not allowed_work_types:
+                flash("Selected machine has no configured work types. Edit machine and add work types first.", "error")
+                return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
+            if work_type not in allowed_work_types:
+                flash("Select a valid work type for the selected machine.", "error")
+                return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
 
         entry.date = entry_date
         entry.work_type = work_type

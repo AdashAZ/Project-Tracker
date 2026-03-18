@@ -89,6 +89,12 @@ class Machine(db.Model):
         backref="machine",
         lazy=True
     )
+    work_types = db.relationship(
+        "MachineWorkType",
+        backref="machine",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
 
     @property
     def balance_hours(self) -> float:
@@ -136,3 +142,16 @@ class Comment(db.Model):
     author = db.Column(db.String(100))
     comment = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.Date, default=date.today)
+
+
+class MachineWorkType(db.Model):
+    __tablename__ = "machine_work_types"
+
+    id = db.Column(db.Integer, primary_key=True)
+    machine_id = db.Column(
+        db.Integer,
+        db.ForeignKey("machines.id"),
+        nullable=False
+    )
+    work_type = db.Column(db.String(50), nullable=False)
+    other_description = db.Column(db.String(255))
