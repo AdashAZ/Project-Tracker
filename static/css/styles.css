@@ -492,6 +492,36 @@ tr:nth-child(even) td {
   margin-bottom: 0.45rem;
 }
 
+.hero-info-list {
+  margin: 0.35rem 0 0;
+  padding: 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(188, 212, 237, 0.3);
+  background-color: rgba(255, 255, 255, 0.06);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 0.42rem 0.8rem;
+}
+
+.hero-info-list div {
+  display: grid;
+  grid-template-columns: 8.6rem 1fr;
+  gap: 0.42rem;
+}
+
+.hero-info-list dt {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #c6d8ee;
+  font-weight: 700;
+}
+
+.hero-info-list dd {
+  margin: 0;
+  color: #f3f8ff;
+  font-weight: 600;
+}
+
 .hero-title {
   margin-bottom: 0.18rem;
   color: #fff;
@@ -517,9 +547,15 @@ tr:nth-child(even) td {
   border: 1px solid rgba(190, 210, 236, 0.36);
   background-color: rgba(255, 255, 255, 0.08);
   color: #edf5ff;
-  padding: 0.18rem 0.55rem;
-  font-size: 0.76rem;
+  padding: 0.3rem 0.78rem;
+  font-size: 0.9rem;
   font-weight: 600;
+}
+
+.hero-meta .status-pill {
+  padding: 0.3rem 0.78rem;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .hero-health {
@@ -919,6 +955,15 @@ tr:nth-child(even) td {
   .summary-list div {
     grid-template-columns: 1fr;
     gap: 0.22rem;
+  }
+
+  .hero-info-list {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-info-list div {
+    grid-template-columns: 1fr;
+    gap: 0.14rem;
   }
 
   .machine-edit-grid {

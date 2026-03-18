@@ -13,15 +13,17 @@
 <div class="project-detail-page">
   <section class="project-hero">
     <div class="hero-main">
-      <div class="hero-kicker">Project / Machine Work Tracker</div>
-      <h1 class="hero-title">{{ project_ref }}</h1>
-      <p class="hero-subtitle">{{ project.product_line or 'No project title entered' }}</p>
-      <div class="hero-meta">
-        <span class="meta-badge">Customer: {{ project.customer or 'N/A' }}</span>
-        <span class="meta-badge">Location: {{ project.location or 'N/A' }}</span>
-        <span class="status-pill status-pill-{{ project.status|lower|replace('/', '-')|replace(' ', '-') }}">{{ project.status }}</span>
-        <span class="meta-badge">Due: {{ project.due_date or 'N/A' }}</span>
-      </div>
+      <div class="hero-kicker">Project Details</div>
+      <dl id="project-summary" class="hero-info-list detail-section">
+        <div><dt>Project Ref</dt><dd>{{ project_ref }}</dd></div>
+        <div><dt>Product / Line</dt><dd>{{ project.product_line or 'N/A' }}</dd></div>
+        <div><dt>Customer</dt><dd>{{ project.customer or 'N/A' }}</dd></div>
+        <div><dt>Location</dt><dd>{{ project.location or 'N/A' }}</dd></div>
+        <div><dt>NA# / SO#</dt><dd>{{ project.na_number or 'N/A' }}</dd></div>
+        <div><dt>EDB#</dt><dd>{{ project.edb_number or 'N/A' }}</dd></div>
+        <div><dt>Status</dt><dd>{{ project.status }}</dd></div>
+        <div><dt>Due Date</dt><dd>{{ project.due_date or 'N/A' }}</dd></div>
+      </dl>
     </div>
 
     <div class="hero-health">
@@ -68,70 +70,10 @@
   </section>
 
   <div class="section-switcher">
-    <button type="button" class="section-toggle-btn is-active" data-target="project-summary">Summary</button>
     <button type="button" class="section-toggle-btn is-active" data-target="machines">Machines</button>
     <button type="button" class="section-toggle-btn is-active" data-target="time-entries">Time Entries</button>
     <button type="button" class="section-toggle-btn is-active" data-target="comments">Comments</button>
   </div>
-
-  <section id="project-summary" class="detail-card detail-section project-summary">
-    <div class="section-title-row">
-      <h2>Summary Dashboard</h2>
-      <span class="section-caption">Project-level progress and identifiers</span>
-    </div>
-
-    <div class="summary-kpi-grid">
-      <article class="kpi-card">
-        <span class="kpi-label">Quoted Hours</span>
-        <strong class="kpi-value">{{ "%.1f"|format(quoted_total) }}h</strong>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-label">Incurred Hours</span>
-        <strong class="kpi-value">{{ "%.1f"|format(incurred_total) }}h</strong>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-label">Remaining Hours</span>
-        <strong class="kpi-value">{{ "%.1f"|format(remaining_total) }}h</strong>
-      </article>
-      <article class="kpi-card">
-        <span class="kpi-label">Days Left</span>
-        <strong class="kpi-value">{{ project.days_left if project.days_left is not none else 'N/A' }}</strong>
-      </article>
-    </div>
-
-    <div class="summary-grid">
-      <article class="summary-panel">
-        <h3>Project Info</h3>
-        <dl class="summary-list">
-          <div><dt>Customer</dt><dd>{{ project.customer or 'N/A' }}</dd></div>
-          <div><dt>Location</dt><dd>{{ project.location or 'N/A' }}</dd></div>
-          <div><dt>Product / Line</dt><dd>{{ project.product_line or 'N/A' }}</dd></div>
-          <div><dt>NA# / SO#</dt><dd>{{ project.na_number or 'N/A' }}</dd></div>
-          <div><dt>EDB#</dt><dd>{{ project.edb_number or 'N/A' }}</dd></div>
-        </dl>
-      </article>
-
-      <article class="summary-panel">
-        <h3>Schedule & Health</h3>
-        <dl class="summary-list">
-          <div><dt>Status</dt><dd><span class="status-pill status-pill-{{ project.status|lower|replace('/', '-')|replace(' ', '-') }}">{{ project.status }}</span></dd></div>
-          <div><dt>Due Date</dt><dd>{{ project.due_date or 'N/A' }}</dd></div>
-          <div><dt>Hours Remaining</dt><dd>{{ "%.1f"|format(remaining_total) }}</dd></div>
-          <div>
-            <dt>% Used</dt>
-            <dd>
-              <div class="usage-progress-wrap">
-                <div class="usage-progress-track">
-                  <div class="usage-progress-fill" style="width: {{ "%.1f"|format(usage_pct_capped) }}%;"></div>
-                </div>
-                <span class="usage-progress-text">{{ "%.1f"|format(project.percent_used) }}%</span>
-              </div>
-            </dd>
-          </div>
-        </dl>
-      </article>
-    </div>
-  </section>
 
   <section id="project-edit" class="detail-card project-edit detail-section" style="display: none;">
     <div class="section-title-row">
@@ -224,14 +166,6 @@
         <tbody>
           {% for machine in machines %}
           {% set tracked_hours = machine_hours.get(machine.id, 0.0) %}
-          {% set machine_quoted = machine.quoted_hours or 0 %}
-          {% if machine_quoted > 0 %}
-            {% set machine_pct_raw = (tracked_hours / machine_quoted) * 100 %}
-          {% else %}
-            {% set machine_pct_raw = 0 %}
-          {% endif %}
-          {% set machine_pct_fill = 100 if machine_pct_raw > 100 else (0 if machine_pct_raw < 0 else machine_pct_raw) %}
-
           <tr class="machine-status-{{ machine.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_row_complete.get(machine.id) %} machine-complete-row{% endif %}">
             <td>{{ machine.machine_name }}</td>
             <td class="machine-col-status">
@@ -248,11 +182,7 @@
               <div class="machine-hours-cell">
                 <div class="machine-hours-meta">
                   <span class="machine-hours-value">{{ "%.1f"|format(tracked_hours) }}h</span>
-                  <!--<span class="machine-hours-quote">of {{ "%.1f"|format(machine_quoted) }}h</span>
                 </div>
-                <div class="machine-hours-track">
-                  <div class="machine-hours-fill" style="width: {{ "%.1f"|format(machine_pct_fill) }}%;"></div>
-                </div>-->
               </div>
             </td>
             <td>{{ machine_entry_counts.get(machine.id, 0) }}</td>
