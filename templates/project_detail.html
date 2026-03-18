@@ -212,8 +212,8 @@
         <thead>
           <tr>
             <th>Machine / Asset #</th>
-            <th>Work Status</th>
-            <th>Tracked Hours</th>
+            <th class="machine-col-status">Work Status</th>
+            <th class="machine-col-tracked">Tracked Hours</th>
             <th>Entries</th>
             {% for milestone in milestone_definitions %}
             <th>{{ milestone.label }}</th>
@@ -234,17 +234,17 @@
 
           <tr class="machine-status-{{ machine.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_row_complete.get(machine.id) %} machine-complete-row{% endif %}">
             <td>{{ machine.machine_name }}</td>
-            <td>
+            <td class="machine-col-status">
               <form method="post" action="{{ url_for('update_machine_status', project_id=project.id, machine_id=machine.id) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <select name="status" onchange="this.form.submit()">
+                <select name="status" class="machine-status-select" onchange="this.form.submit()">
                   {% for status_option in machine_status_options %}
                   <option value="{{ status_option }}" {% if machine.status == status_option %}selected{% endif %}>{{ status_option }}</option>
                   {% endfor %}
                 </select>
               </form>
             </td>
-            <td>
+            <td class="machine-col-tracked">
               <div class="machine-hours-cell">
                 <div class="machine-hours-meta">
                   <span class="machine-hours-value">{{ "%.1f"|format(tracked_hours) }}h</span>
