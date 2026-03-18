@@ -14,7 +14,7 @@ from flask import (
     flash,
     session,
 )
-from sqlalchemy import text
+from sqlalchemy import text, case
 from urllib.parse import quote
 from markupsafe import Markup, escape
 
@@ -166,7 +166,8 @@ def create_app():
         if status_filter and status_filter in ALLOWED_STATUSES:
             query = query.filter_by(status=status_filter)
 
-        projects = query.order_by(Project.due_date).all()
+        completion_bucket = case((Project.status == "Completed", 1), else_=0)
+        projects = query.order_by(completion_bucket.asc(), Project.id.desc()).all()
 
         for project in projects:
             total_incurred = sum(te.hours for te in project.time_entries)
