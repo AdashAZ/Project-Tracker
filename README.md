@@ -13,7 +13,7 @@ A lightweight, web-based Flask application for managing engineering/manufacturin
 ## Main Features
 
 - **Dashboard** — Overview of all projects with status filtering (N/S, WIP, Stopped, In Review, Completed). Shows key metrics: quoted hours, incurred hours, % done, days left to due date, and clickable links to details.
-- **Project Management** — Create, edit, update status, or delete projects. Fields include customer, location, product line, NA#/SO#, EDB#, due date, quoted hours total, and status.
+- **Project Management** — Create, edit, update status, or delete projects. Fields include customer, location, product line, due date, quoted hours total, and status.
 - **Machines / Assets** — Add unlimited machines per project. Track per-machine: status, quoted/incurred hours, balance, version, NCTP flag, and four custom milestones (CAS approval, sent to customer, EDB review, released in EDB) with one-click "set today" buttons.
 - **Time Tracking (Hours on Tasks/Jobs)** — Log labor hours with date, work type (your task/job name), hours, notes, and optional machine link. Full CRUD (add/edit/delete). Hours instantly contribute to project and machine totals.
 - **Comments** — Project- or machine-level notes with author and date. Windows file paths (e.g. `C:\path\to\file`) become clickable links that open directly in File Explorer.
