@@ -351,13 +351,18 @@
         <label for="date">Date</label>
         <input type="date" id="date" name="date">
 
-        <label for="machine_id">Machine (required when machines exist)</label>
-        <select id="machine_id" name="machine_id" class="machine-select">
-          <option value="">-- None --</option>
-          {% for machine in machines %}
-          <option value="{{ machine.id }}">{{ machine.machine_name }}</option>
-          {% endfor %}
-        </select>
+        <label for="machine_id">Select Machine</label>
+          <select id="machine_id" name="machine_id" class="machine-select">
+              <option value="">-- None --</option>
+              {% for machine in machines %}
+              <option value="{{ machine.id }}">
+                  {{ machine.machine_name }}
+                  {%- if machine.project and (machine.project.product_line or project.product_line) -%}
+                      &nbsp;–&nbsp;{{ machine.project.product_line or project.product_line }}
+                  {%- endif -%}
+              </option>
+              {% endfor %}
+          </select>
 
         <label for="work_type">Work Type</label>
         <select id="work_type" name="work_type" class="work-type-select" data-machine-select-id="machine_id">
@@ -426,12 +431,17 @@
                   <input type="number" step="0.1" id="edit-hours-{{ entry.id }}" name="hours" value="{{ entry.hours }}" required>
 
                   <label for="edit-machine-{{ entry.id }}">Machine</label>
-                  <select id="edit-machine-{{ entry.id }}" name="machine_id" class="machine-select">
-                    <option value="">-- None --</option>
-                    {% for machine in machines %}
-                    <option value="{{ machine.id }}" {% if entry.machine_id == machine.id %}selected{% endif %}>{{ machine.machine_name }}</option>
-                    {% endfor %}
-                  </select>
+                    <select id="edit-machine-{{ entry.id }}" name="machine_id" class="machine-select">
+                        <option value="">-- None --</option>
+                        {% for machine in machines %}
+                        <option value="{{ machine.id }}" {% if entry.machine_id == machine.id %}selected{% endif %}>
+                            {{ machine.machine_name }}
+                            {%- if machine.project and (machine.project.product_line or project.product_line) -%}
+                                &nbsp;–&nbsp;{{ machine.project.product_line or project.product_line }}
+                            {%- endif -%}
+                        </option>
+                        {% endfor %}
+                    </select>
 
                   <label for="edit-notes-{{ entry.id }}">Notes</label>
                   <input type="text" id="edit-notes-{{ entry.id }}" name="notes" value="{{ entry.notes or '' }}">
