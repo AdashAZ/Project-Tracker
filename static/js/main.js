@@ -327,15 +327,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  const defaultWorkTypesScript = document.getElementById("default-work-type-options");
+  let defaultWorkTypeOptions = [];
+  if (defaultWorkTypesScript?.textContent) {
+    try {
+      defaultWorkTypeOptions = JSON.parse(defaultWorkTypesScript.textContent);
+    } catch {
+      defaultWorkTypeOptions = [];
+    }
+  }
+
   const refreshWorkTypeSelectForMachine = (workTypeSelect, machineSelect, preferredValue = "") => {
     if (!workTypeSelect || !machineSelect) return;
     const machineId = machineSelect.value || "";
-    const options = (machineWorkTypesMap[machineId] || []).filter(Boolean);
+    const machineSpecificOptions = (machineWorkTypesMap[machineId] || []).filter(Boolean);
+    const options = machineSpecificOptions.length > 0 ? machineSpecificOptions : defaultWorkTypeOptions.filter(Boolean);
 
     workTypeSelect.innerHTML = "";
     const defaultOption = document.createElement("option");
     defaultOption.value = "";
-    defaultOption.textContent = "-- Select --";
+    defaultOption.textContent = machineId ? "-- Select --" : "Select machine first";
     workTypeSelect.appendChild(defaultOption);
 
     if (!machineId) {
@@ -344,7 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (options.length === 0) {
       const emptyOption = document.createElement("option");
       emptyOption.value = "";
-      emptyOption.textContent = "No work types configured";
+      emptyOption.textContent = "No work types configured (edit machine)";
       emptyOption.disabled = true;
       workTypeSelect.appendChild(emptyOption);
       workTypeSelect.disabled = true;
@@ -380,6 +391,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     machineSelect.addEventListener("change", () => {
       refreshWorkTypeSelectForMachine(workTypeSelect, machineSelect);
+    });
+
+    workTypeSelect.addEventListener("focus", () => {
+      if (workTypeSelect.disabled) {
+        refreshWorkTypeSelectForMachine(workTypeSelect, machineSelect);
+      }
     });
   });
 

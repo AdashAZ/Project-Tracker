@@ -187,6 +187,35 @@ def create_app():
             return None, "Invalid machine selection."
         return machine.id, None
 
+    def validate_and_sync_machine_work_type(machine: Machine, work_type: str | None):
+        selected_work_type = (work_type or "").strip()
+        if not selected_work_type:
+            return "Select a valid work type for the selected machine."
+
+        configured_labels = [item["label"] for item in get_machine_work_type_rows(machine)]
+        if configured_labels:
+            if selected_work_type not in configured_labels:
+                return "Select a valid work type for the selected machine."
+            return None
+
+        if selected_work_type not in WORK_TYPE_OPTIONS:
+            return "Select a valid work type for the selected machine."
+
+        existing = MachineWorkType.query.filter_by(
+            machine_id=machine.id,
+            work_type=selected_work_type,
+            other_description=None,
+        ).first()
+        if not existing:
+            db.session.add(
+                MachineWorkType(
+                    machine_id=machine.id,
+                    work_type=selected_work_type,
+                    other_description=None,
+                )
+            )
+        return None
+
     def compute_machine_stats(machines, time_entries):
         machine_hours = {machine.id: 0.0 for machine in machines}
         machine_entry_counts = {machine.id: 0 for machine in machines}
@@ -675,12 +704,9 @@ def create_app():
         machine_obj = None
         if machine_id_value is not None:
             machine_obj = Machine.query.filter_by(id=machine_id_value, project_id=project.id).first()
-            allowed_work_types = [item["label"] for item in get_machine_work_type_rows(machine_obj)]
-            if not allowed_work_types:
-                flash("Selected machine has no configured work types. Edit machine and add work types first.", "error")
-                return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
-            if work_type not in allowed_work_types:
-                flash("Select a valid work type for the selected machine.", "error")
+            work_type_error = validate_and_sync_machine_work_type(machine_obj, work_type)
+            if work_type_error:
+                flash(work_type_error, "error")
                 return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
 
         db.session.add(
@@ -738,12 +764,9 @@ def create_app():
 
         if machine_id_value is not None:
             machine_obj = Machine.query.filter_by(id=machine_id_value, project_id=project.id).first()
-            allowed_work_types = [item["label"] for item in get_machine_work_type_rows(machine_obj)]
-            if not allowed_work_types:
-                flash("Selected machine has no configured work types. Edit machine and add work types first.", "error")
-                return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
-            if work_type not in allowed_work_types:
-                flash("Select a valid work type for the selected machine.", "error")
+            work_type_error = validate_and_sync_machine_work_type(machine_obj, work_type)
+            if work_type_error:
+                flash(work_type_error, "error")
                 return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
 
         entry.date = entry_date

@@ -342,14 +342,6 @@
         <label for="date">Date</label>
         <input type="date" id="date" name="date">
 
-        <label for="work_type">Work Type</label>
-        <select id="work_type" name="work_type" class="work-type-select" data-machine-select-id="machine_id">
-          <option value="">-- Select --</option>
-        </select>
-
-        <label for="hours">Hours *</label>
-        <input type="number" step="0.1" id="hours" name="hours" required>
-
         <label for="machine_id">Machine (required when machines exist)</label>
         <select id="machine_id" name="machine_id" class="machine-select">
           <option value="">-- None --</option>
@@ -357,6 +349,14 @@
           <option value="{{ machine.id }}">{{ machine.machine_name }}</option>
           {% endfor %}
         </select>
+
+        <label for="work_type">Work Type</label>
+        <select id="work_type" name="work_type" class="work-type-select" data-machine-select-id="machine_id">
+          <option value="">Select machine first</option>
+        </select>
+
+        <label for="hours">Hours *</label>
+        <input type="number" step="0.1" id="hours" name="hours" required>
 
         <label for="notes">Notes</label>
         <input type="text" id="notes" name="notes">
@@ -410,7 +410,7 @@
                     data-machine-select-id="edit-machine-{{ entry.id }}"
                     data-current-value="{{ entry.work_type or '' }}"
                   >
-                    <option value="">-- Select --</option>
+                    <option value="">Select machine first</option>
                   </select>
 
                   <label for="edit-hours-{{ entry.id }}">Hours *</label>
@@ -509,6 +509,7 @@
   </section>
 
   <script id="machine-work-types-map" type="application/json">{{ machine_work_type_choices | tojson }}</script>
+  <script id="default-work-type-options" type="application/json">{{ work_type_options | tojson }}</script>
   <template id="machine-work-type-row-template">
     <div class="machine-work-type-row" data-work-type-row>
       <select class="machine-work-type-select">
