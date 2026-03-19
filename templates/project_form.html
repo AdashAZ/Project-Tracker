@@ -19,11 +19,6 @@
   </div>
 
   <div class="form-group">
-    <label for="product_line">Product / Line</label>
-    <input type="text" id="product_line" name="product_line" />
-  </div>
-
-  <div class="form-group">
     <label for="na_number">NA# / SO#</label>
     <input type="text" id="na_number" name="na_number" />
   </div>
@@ -44,39 +39,64 @@
   </div>
 
   <div class="form-group">
-    <label>Machines / Asset #s</label>
-    <input type="hidden" id="machines_payload" name="machines_payload" value="[]">
+    <label>Product / Line + Machines / Asset #s</label>
+    <input type="hidden" id="product_lines_payload" name="product_lines_payload" value="[]">
 
-    <div id="machine-builder-list" class="machine-builder-list">
-      <div class="machine-builder-item" data-machine-item>
-        <div class="machine-builder-top">
-          <label>Machine / Asset #</label>
-          <button type="button" class="btn-mini machine-remove-btn" data-remove-machine>Remove</button>
+    <div id="product-line-builder-list" class="product-line-builder-list">
+      <div class="product-line-builder-item" data-product-line-item>
+        <div class="product-line-builder-top">
+          <label>Product / Line *</label>
+          <button type="button" class="btn-mini product-line-remove-btn" data-remove-product-line>Remove</button>
         </div>
-        <input type="text" class="machine-name-input" placeholder="e.g. Conv 1 - Filler">
+        <input type="text" class="product-line-name-input" placeholder="e.g. Auto Bottle Cutter Line">
 
-        <div class="machine-work-types" data-work-types-container>
-          <div class="machine-work-type-row" data-work-type-row>
-            <label>Work Type *</label>
-            <select class="machine-work-type-select">
-              <option value="">-- Select --</option>
-              {% for work_type in work_type_options %}
-              <option value="{{ work_type }}">{{ work_type }}</option>
-              {% endfor %}
-            </select>
-            <input type="text" class="machine-work-type-other" placeholder="Describe other work" style="display: none;">
+        <div class="machine-builder-list" data-machine-builder-list>
+          <div class="machine-builder-item" data-machine-item>
+            <div class="machine-builder-top">
+              <label>Machine / Asset #</label>
+              <button type="button" class="btn-mini machine-remove-btn" data-remove-machine>Remove</button>
+            </div>
+            <input type="text" class="machine-name-input" placeholder="e.g. Conv 1 - Filler">
+
+            <div class="machine-work-types" data-work-types-container>
+              <div class="machine-work-type-row" data-work-type-row>
+                <label>Work Type *</label>
+                <select class="machine-work-type-select">
+                  <option value="">-- Select --</option>
+                  {% for work_type in work_type_options %}
+                  <option value="{{ work_type }}">{{ work_type }}</option>
+                  {% endfor %}
+                </select>
+                <input type="text" class="machine-work-type-other" placeholder="Describe other work" style="display: none;">
+              </div>
+            </div>
+
+            <button type="button" class="btn-mini" data-add-work-type>Add Work Type</button>
           </div>
         </div>
 
-        <button type="button" class="btn-mini" data-add-work-type>Add Work Type</button>
+        <button type="button" class="add-machine-btn" data-add-machine-row-btn>Add Machine</button>
       </div>
     </div>
 
-    <button type="button" id="add-machine-row-btn" class="add-machine-btn">Add Machine</button>
+    <button type="button" id="add-product-line-btn" class="add-product-line-btn">Add Product / Line</button>
   </div>
 
   <button type="submit">Create Project</button>
 </form>
+
+<template id="product-line-builder-template">
+  <div class="product-line-builder-item" data-product-line-item>
+    <div class="product-line-builder-top">
+      <label>Product / Line *</label>
+      <button type="button" class="btn-mini product-line-remove-btn" data-remove-product-line>Remove</button>
+    </div>
+    <input type="text" class="product-line-name-input" placeholder="e.g. Press Line 2">
+
+    <div class="machine-builder-list" data-machine-builder-list></div>
+    <button type="button" class="add-machine-btn" data-add-machine-row-btn>Add Machine</button>
+  </div>
+</template>
 
 <template id="machine-builder-template">
   <div class="machine-builder-item" data-machine-item>

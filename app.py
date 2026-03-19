@@ -19,7 +19,7 @@ from sqlalchemy import text, case
 from urllib.parse import quote
 from markupsafe import Markup, escape
 
-from models import db, Project, Machine, TimeEntry, Comment, MachineWorkType
+from models import db, Project, ProductLine, Machine, TimeEntry, Comment, MachineWorkType
 
 ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
 MACHINE_STATUS_OPTIONS = ["N/S", "WIP", "Stopped", "In Review", "Completed"]
@@ -132,35 +132,56 @@ def create_app():
 
         return parsed, None
 
-    def parse_new_project_machines_payload(payload_raw: str | None):
+    def parse_new_project_product_lines_payload(payload_raw: str | None):
         if not payload_raw:
-            return [], None
+            return None, "At least one Product / Line is required."
 
         try:
             payload = json.loads(payload_raw)
         except (TypeError, ValueError):
-            return None, "Invalid machines payload."
+            return None, "Invalid product/line payload."
 
         if not isinstance(payload, list):
-            return None, "Invalid machines payload."
+            return None, "Invalid product/line payload."
 
-        parsed_machines = []
-        for item in payload:
-            if not isinstance(item, dict):
-                return None, "Invalid machine payload."
+        parsed_lines = []
+        for line_item in payload:
+            if not isinstance(line_item, dict):
+                return None, "Invalid product/line payload."
 
-            machine_name = (item.get("machine_name") or "").strip()
-            if not machine_name:
+            line_name = (line_item.get("product_line_name") or "").strip()
+            machine_items = line_item.get("machines") or []
+
+            if not line_name and not machine_items:
                 continue
+            if not line_name:
+                return None, "Each machine group requires a Product / Line name."
 
-            work_types_raw = json.dumps(item.get("work_types") or [])
-            parsed_work_types, error = parse_work_types_payload(work_types_raw, require_one=True)
-            if error:
-                return None, f"Machine '{machine_name}': {error}"
+            if not isinstance(machine_items, list):
+                return None, f"Product / Line '{line_name}' has invalid machine data."
 
-            parsed_machines.append({"machine_name": machine_name, "work_types": parsed_work_types})
+            parsed_machines = []
+            for machine_item in machine_items:
+                if not isinstance(machine_item, dict):
+                    return None, f"Product / Line '{line_name}' has invalid machine data."
 
-        return parsed_machines, None
+                machine_name = (machine_item.get("machine_name") or "").strip()
+                if not machine_name:
+                    continue
+
+                work_types_raw = json.dumps(machine_item.get("work_types") or [])
+                parsed_work_types, error = parse_work_types_payload(work_types_raw, require_one=True)
+                if error:
+                    return None, f"Product / Line '{line_name}', machine '{machine_name}': {error}"
+
+                parsed_machines.append({"machine_name": machine_name, "work_types": parsed_work_types})
+
+            parsed_lines.append({"product_line_name": line_name, "machines": parsed_machines})
+
+        if not parsed_lines:
+            return None, "At least one Product / Line is required."
+
+        return parsed_lines, None
 
     def get_machine_work_type_rows(machine: Machine):
         rows = []
@@ -186,6 +207,18 @@ def create_app():
         if not machine:
             return None, "Invalid machine selection."
         return machine.id, None
+
+    def resolve_product_line_id(product_line_id_raw: str | None, project_id: int):
+        if not product_line_id_raw:
+            return None, "Select a valid Product / Line."
+        try:
+            product_line_id_int = int(product_line_id_raw)
+        except ValueError:
+            return None, "Select a valid Product / Line."
+        product_line = ProductLine.query.filter_by(id=product_line_id_int, project_id=project_id).first()
+        if not product_line:
+            return None, "Select a valid Product / Line."
+        return product_line.id, None
 
     def validate_and_sync_machine_work_type(machine: Machine, work_type: str | None):
         selected_work_type = (work_type or "").strip()
@@ -326,12 +359,11 @@ def create_app():
         if request.method == "POST":
             customer = request.form.get("customer")
             location = request.form.get("location")
-            product_line = request.form.get("product_line")
             na_number = request.form.get("na_number")
             edb_number = request.form.get("edb_number")
             due_date_str = request.form.get("due_date")
             quoted_hours_total = request.form.get("quoted_hours_total") or "0"
-            machines_payload = request.form.get("machines_payload")
+            product_lines_payload = request.form.get("product_lines_payload")
 
             if not customer:
                 flash("Customer is required.", "error")
@@ -347,36 +379,46 @@ def create_app():
                 flash("Quoted hours must be a valid number.", "error")
                 return redirect(url_for("new_project"))
 
-            machine_specs, machine_error = parse_new_project_machines_payload(machines_payload)
-            if machine_error:
-                flash(machine_error, "error")
+            product_line_specs, product_line_error = parse_new_project_product_lines_payload(product_lines_payload)
+            if product_line_error:
+                flash(product_line_error, "error")
                 return redirect(url_for("new_project"))
 
             project = Project(
                 customer=customer,
                 location=location,
-                product_line=product_line,
+                product_line=product_line_specs[0]["product_line_name"] if product_line_specs else None,
                 na_number=na_number,
                 edb_number=edb_number,
                 due_date=due_date,
                 quoted_hours_total=quoted_hours,
             )
             db.session.add(project)
-            db.session.commit()
+            db.session.flush()
 
-            for item in machine_specs:
-                machine = Machine(project_id=project.id, machine_name=item["machine_name"], status="N/S")
-                db.session.add(machine)
+            for line_spec in product_line_specs:
+                product_line_item = ProductLine(project_id=project.id, name=line_spec["product_line_name"])
+                db.session.add(product_line_item)
                 db.session.flush()
 
-                for wt in item["work_types"]:
-                    db.session.add(
-                        MachineWorkType(
-                            machine_id=machine.id,
-                            work_type=wt["work_type"],
-                            other_description=wt["other_description"],
-                        )
+                for machine_spec in line_spec["machines"]:
+                    machine = Machine(
+                        project_id=project.id,
+                        product_line_id=product_line_item.id,
+                        machine_name=machine_spec["machine_name"],
+                        status="N/S",
                     )
+                    db.session.add(machine)
+                    db.session.flush()
+
+                    for wt in machine_spec["work_types"]:
+                        db.session.add(
+                            MachineWorkType(
+                                machine_id=machine.id,
+                                work_type=wt["work_type"],
+                                other_description=wt["other_description"],
+                            )
+                        )
 
             db.session.commit()
 
@@ -388,7 +430,28 @@ def create_app():
     @app.route("/projects/<int:project_id>")
     def project_detail(project_id):
         project = Project.query.get_or_404(project_id)
+        product_lines = ProductLine.query.filter_by(project_id=project.id).order_by(ProductLine.id.asc()).all()
+        created_default_line = False
+        if not product_lines:
+            general_line = ProductLine(project_id=project.id, name="General")
+            db.session.add(general_line)
+            db.session.flush()
+            product_lines = [general_line]
+            created_default_line = True
+
         machines = Machine.query.filter_by(project_id=project.id).order_by(Machine.id.asc()).all()
+        updated_missing_machine_lines = False
+        fallback_line = product_lines[0] if product_lines else None
+        if fallback_line:
+            for machine in machines:
+                if machine.product_line_id is None:
+                    machine.product_line_id = fallback_line.id
+                    updated_missing_machine_lines = True
+        if created_default_line or updated_missing_machine_lines:
+            db.session.commit()
+            machines = Machine.query.filter_by(project_id=project.id).order_by(Machine.id.asc()).all()
+            product_lines = ProductLine.query.filter_by(project_id=project.id).order_by(ProductLine.id.asc()).all()
+
         time_entries = (
             TimeEntry.query.filter_by(project_id=project.id)
             .order_by(TimeEntry.date.desc(), TimeEntry.id.desc())
@@ -410,6 +473,8 @@ def create_app():
         machine_work_type_rows = {}
         machine_work_type_choices = {}
         machine_work_type_hours = {}
+        machine_display_labels = {}
+        machine_groups = []
 
         for machine in machines:
             work_type_rows = get_machine_work_type_rows(machine)
@@ -417,6 +482,8 @@ def create_app():
 
             labels = [item["label"] for item in work_type_rows]
             machine_work_type_choices[machine.id] = labels
+            product_line_name = machine.product_line.name if machine.product_line else "General"
+            machine_display_labels[machine.id] = f"{product_line_name} - {machine.machine_name}"
 
             hours_by_label = []
             for label in labels:
@@ -446,6 +513,10 @@ def create_app():
 
             machine_work_type_hours[machine.id] = hours_by_label
 
+        for line in product_lines:
+            line_machines = [machine for machine in machines if machine.product_line_id == line.id]
+            machine_groups.append({"product_line": line, "machines": line_machines})
+
         edit_machine_id = request.args.get("edit_machine", type=int)
         if edit_machine_id and not any(machine.id == edit_machine_id for machine in machines):
             edit_machine_id = None
@@ -461,7 +532,10 @@ def create_app():
         return render_template(
             "project_detail.html",
             project=project,
+            product_lines=product_lines,
+            machine_groups=machine_groups,
             machines=machines,
+            machine_display_labels=machine_display_labels,
             time_entries=time_entries,
             comments=comments,
             machine_hours=machine_hours,
@@ -492,12 +566,25 @@ def create_app():
     def add_machine(project_id):
         project = Project.query.get_or_404(project_id)
         machine_name = (request.form.get("machine_name") or "").strip()
+        product_line_id_raw = request.form.get("product_line_id")
 
         if not machine_name:
             flash("Machine / Asset # cannot be empty.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        db.session.add(Machine(project_id=project.id, machine_name=machine_name, status="N/S"))
+        product_line_id_value, product_line_error = resolve_product_line_id(product_line_id_raw, project.id)
+        if product_line_error:
+            flash(product_line_error, "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        db.session.add(
+            Machine(
+                project_id=project.id,
+                product_line_id=product_line_id_value,
+                machine_name=machine_name,
+                status="N/S",
+            )
+        )
         db.session.commit()
 
         flash("Machine / Asset # added. Use Edit to configure work types.", "success")
@@ -509,6 +596,7 @@ def create_app():
         machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
 
         machine_name = (request.form.get("machine_name") or "").strip()
+        product_line_id_raw = request.form.get("product_line_id")
         status = request.form.get("status")
         quoted_hours_raw = request.form.get("quoted_hours")
         incurred_hours_raw = request.form.get("incurred_hours")
@@ -527,6 +615,11 @@ def create_app():
 
         if status not in MACHINE_STATUS_OPTIONS:
             flash("Invalid machine status value.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        product_line_id_value, product_line_error = resolve_product_line_id(product_line_id_raw, project.id)
+        if product_line_error:
+            flash(product_line_error, "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
         parsed_work_types, work_types_error = parse_work_types_payload(work_types_payload_raw, require_one=True)
@@ -565,6 +658,7 @@ def create_app():
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
         machine.machine_name = machine_name
+        machine.product_line_id = product_line_id_value
         machine.status = status
         machine.quoted_hours = quoted_hours if quoted_hours is not None else 0.0
         machine.incurred_hours = incurred_hours if incurred_hours is not None else 0.0
@@ -909,11 +1003,25 @@ def ensure_machine_schema():
         "report_sent_customer_date": "DATE",
         "report_sent_review_edb_date": "DATE",
         "released_in_edb_date": "DATE",
+        "product_line_id": "INTEGER",
     }
 
     for col_name, col_def in required_cols.items():
         if col_name not in existing_cols:
             db.session.execute(text(f"ALTER TABLE machines ADD COLUMN {col_name} {col_def}"))
+
+    # Backfill Product / Line structure for legacy projects and machines.
+    projects = Project.query.order_by(Project.id.asc()).all()
+    for project in projects:
+        general_line = ProductLine.query.filter_by(project_id=project.id, name="General").first()
+        if not general_line:
+            general_line = ProductLine(project_id=project.id, name="General")
+            db.session.add(general_line)
+            db.session.flush()
+
+        Machine.query.filter_by(project_id=project.id, product_line_id=None).update(
+            {"product_line_id": general_line.id}
+        )
 
     # Normalize legacy status values to the current vocabulary.
     db.session.execute(

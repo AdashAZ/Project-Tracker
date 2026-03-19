@@ -82,6 +82,30 @@ A lightweight, web-based Flask application for managing engineering/manufacturin
 - **Project Detail** → Add machines, log time entries (your "hours worked on task/job"), set milestones, or add comments.
 - All changes save instantly to the local database.
 
+## Legacy CSV Backfill (Dry Run + Import)
+
+Use the one-time importer script for historical projects exported from older spreadsheets.
+
+1. Dry run preview (no DB writes):
+   ```bash
+   python scripts/import_legacy_csv_project.py --csv "C:\path\legacy.csv"
+   ```
+
+2. Apply import:
+   ```bash
+   python scripts/import_legacy_csv_project.py --csv "C:\path\legacy.csv" --apply
+   ```
+
+3. Optional overrides:
+   ```bash
+   python scripts/import_legacy_csv_project.py \
+     --csv "C:\path\legacy.csv" \
+     --customer "SICK" \
+     --machine-name "Press 3 & 4" \
+     --status "Completed" \
+     --apply
+   ```
+
 ## Folder Structure (key files)
 
 - `app.py` — Main Flask app with all routes and logic

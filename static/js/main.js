@@ -214,11 +214,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // ---------------------------
   const newProjectForm = document.getElementById("new-project-form");
   if (newProjectForm) {
-    const machineList = document.getElementById("machine-builder-list");
+    const productLineList = document.getElementById("product-line-builder-list");
+    const productLineTemplate = document.getElementById("product-line-builder-template");
     const machineTemplate = document.getElementById("machine-builder-template");
     const workTypeTemplate = document.getElementById("machine-work-type-template");
-    const addMachineBtn = document.getElementById("add-machine-row-btn");
-    const machinesPayloadInput = document.getElementById("machines_payload");
+    const addProductLineBtn = document.getElementById("add-product-line-btn");
+    const productLinesPayloadInput = document.getElementById("product_lines_payload");
 
     const addWorkTypeRow = (machineItem) => {
       if (!workTypeTemplate || !machineItem) return;
@@ -229,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
       bindWorkTypeRowInteractions(row);
     };
 
-    const refreshMachineRemoveButtons = () => {
+    const refreshMachineRemoveButtons = (machineList) => {
       if (!machineList) return;
       const machineItems = Array.from(machineList.querySelectorAll("[data-machine-item]"));
       const showRemove = machineItems.length > 1;
@@ -241,7 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     };
 
-    const bindMachineItem = (machineItem) => {
+    const bindMachineItem = (machineItem, machineList) => {
       const addWorkTypeBtn = machineItem.querySelector("[data-add-work-type]");
       const removeMachineBtn = machineItem.querySelector("[data-remove-machine]");
 
@@ -253,9 +254,9 @@ document.addEventListener("DOMContentLoaded", () => {
         removeMachineBtn.addEventListener("click", () => {
           machineItem.remove();
           if (machineList && machineList.querySelectorAll("[data-machine-item]").length === 0) {
-            addMachineBtn?.click();
+            addMachineItem(machineList);
           }
-          refreshMachineRemoveButtons();
+          refreshMachineRemoveButtons(machineList);
         });
       }
 
@@ -266,51 +267,132 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    const addMachineItem = () => {
+    const addMachineItem = (machineList) => {
       if (!machineTemplate || !machineList) return;
       const machineItem = machineTemplate.content.firstElementChild.cloneNode(true);
       machineList.appendChild(machineItem);
-      bindMachineItem(machineItem);
-      refreshMachineRemoveButtons();
+      bindMachineItem(machineItem, machineList);
+      refreshMachineRemoveButtons(machineList);
     };
 
-    if (addMachineBtn) {
-      addMachineBtn.addEventListener("click", addMachineItem);
+    const refreshProductLineRemoveButtons = () => {
+      if (!productLineList) return;
+      const lineItems = Array.from(productLineList.querySelectorAll("[data-product-line-item]"));
+      const showRemove = lineItems.length > 1;
+      lineItems.forEach((lineItem) => {
+        const removeBtn = lineItem.querySelector("[data-remove-product-line]");
+        if (!removeBtn) return;
+        removeBtn.hidden = !showRemove;
+        removeBtn.disabled = !showRemove;
+      });
+    };
+
+    const bindProductLineItem = (productLineItem) => {
+      const removeProductLineBtn = productLineItem.querySelector("[data-remove-product-line]");
+      const addMachineBtn = productLineItem.querySelector("[data-add-machine-row-btn]");
+      const machineList = productLineItem.querySelector("[data-machine-builder-list]");
+      if (!machineList) return;
+
+      if (addMachineBtn) {
+        addMachineBtn.addEventListener("click", () => addMachineItem(machineList));
+      }
+
+      if (removeProductLineBtn) {
+        removeProductLineBtn.addEventListener("click", () => {
+          productLineItem.remove();
+          if (productLineList && productLineList.querySelectorAll("[data-product-line-item]").length === 0) {
+            addProductLineItem();
+          }
+          refreshProductLineRemoveButtons();
+        });
+      }
+
+      machineList.querySelectorAll("[data-machine-item]").forEach((item) => bindMachineItem(item, machineList));
+      if (machineList.querySelectorAll("[data-machine-item]").length === 0) {
+        addMachineItem(machineList);
+      }
+      refreshMachineRemoveButtons(machineList);
+    };
+
+    const addProductLineItem = () => {
+      if (!productLineTemplate || !productLineList) return;
+      const lineItem = productLineTemplate.content.firstElementChild.cloneNode(true);
+      productLineList.appendChild(lineItem);
+      bindProductLineItem(lineItem);
+      refreshProductLineRemoveButtons();
+    };
+
+    if (addProductLineBtn) {
+      addProductLineBtn.addEventListener("click", addProductLineItem);
     }
 
-    if (machineList) {
-      machineList.querySelectorAll("[data-machine-item]").forEach((item) => bindMachineItem(item));
-      refreshMachineRemoveButtons();
+    if (productLineList) {
+      productLineList.querySelectorAll("[data-product-line-item]").forEach((item) => bindProductLineItem(item));
+      refreshProductLineRemoveButtons();
     }
 
     newProjectForm.addEventListener("submit", (event) => {
-      if (!machineList || !machinesPayloadInput) return;
+      if (!productLineList || !productLinesPayloadInput) return;
 
-      const machinePayload = [];
+      const productLinePayload = [];
       let hasError = false;
+      let hasProductLine = false;
 
-      machineList.querySelectorAll("[data-machine-item]").forEach((machineItem) => {
-        const nameInput = machineItem.querySelector(".machine-name-input");
-        const machineName = (nameInput?.value || "").trim();
-        if (!machineName) return;
+      productLineList.querySelectorAll("[data-product-line-item]").forEach((lineItem) => {
+        const lineNameInput = lineItem.querySelector(".product-line-name-input");
+        const lineName = (lineNameInput?.value || "").trim();
+        const machineItems = lineItem.querySelectorAll("[data-machine-item]");
+        const machinePayload = [];
 
-        const workTypeRows = machineItem.querySelectorAll("[data-work-type-row]");
-        const { payload, hasError: rowError } = serializeWorkTypeRows(workTypeRows);
-        if (rowError) {
+        machineItems.forEach((machineItem) => {
+          const nameInput = machineItem.querySelector(".machine-name-input");
+          const machineName = (nameInput?.value || "").trim();
+          if (!machineName) return;
+
+          if (!lineName) {
+            hasError = true;
+            return;
+          }
+
+          const workTypeRows = machineItem.querySelectorAll("[data-work-type-row]");
+          const { payload, hasError: rowError } = serializeWorkTypeRows(workTypeRows);
+          if (rowError) {
+            hasError = true;
+            return;
+          }
+
+          machinePayload.push({ machine_name: machineName, work_types: payload });
+        });
+
+        if (!lineName && machinePayload.length === 0) {
+          return;
+        }
+
+        if (!lineName) {
           hasError = true;
           return;
         }
 
-        machinePayload.push({ machine_name: machineName, work_types: payload });
+        hasProductLine = true;
+        productLinePayload.push({
+          product_line_name: lineName,
+          machines: machinePayload,
+        });
       });
 
-      if (hasError) {
+      if (!hasProductLine) {
         event.preventDefault();
-        alert("Each machine must include at least one valid work type. 'Other' requires a description.");
+        alert("Add at least one Product / Line before creating the project.");
         return;
       }
 
-      machinesPayloadInput.value = JSON.stringify(machinePayload);
+      if (hasError) {
+        event.preventDefault();
+        alert("Each machine must include at least one valid work type. Also make sure each machine is inside a named Product / Line.");
+        return;
+      }
+
+      productLinesPayloadInput.value = JSON.stringify(productLinePayload);
     });
   }
 

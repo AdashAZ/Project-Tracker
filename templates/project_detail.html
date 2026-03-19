@@ -16,7 +16,16 @@
       <div class="hero-kicker">Project Details</div>
       <dl id="project-summary" class="hero-info-list detail-section">
         <div><dt>Project Ref</dt><dd>{{ project_ref }}</dd></div>
-        <div><dt>Product / Line</dt><dd>{{ project.product_line or 'N/A' }}</dd></div>
+        <div>
+          <dt>Product / Line</dt>
+          <dd>
+            {% if product_lines %}
+              {{ product_lines | map(attribute='name') | join(', ') }}
+            {% else %}
+              {{ project.product_line or 'N/A' }}
+            {% endif %}
+          </dd>
+        </div>
         <div><dt>Customer</dt><dd>{{ project.customer or 'N/A' }}</dd></div>
         <div><dt>Location</dt><dd>{{ project.location or 'N/A' }}</dd></div>
         <div><dt>NA# / SO#</dt><dd>{{ project.na_number or 'N/A' }}</dd></div>

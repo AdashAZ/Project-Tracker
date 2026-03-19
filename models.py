@@ -28,6 +28,12 @@ class Project(db.Model):
         lazy=True,
         cascade="all, delete-orphan"
     )
+    product_lines = db.relationship(
+        "ProductLine",
+        backref="project",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
     time_entries = db.relationship(
         "TimeEntry",
         backref="project",
@@ -64,6 +70,11 @@ class Machine(db.Model):
         db.ForeignKey("projects.id"),
         nullable=False
     )
+    product_line_id = db.Column(
+        db.Integer,
+        db.ForeignKey("product_lines.id"),
+        nullable=True
+    )
 
     machine_name = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(50), default="N/S")
@@ -99,6 +110,24 @@ class Machine(db.Model):
     @property
     def balance_hours(self) -> float:
         return (self.quoted_hours or 0.0) - (self.incurred_hours or 0.0)
+
+
+class ProductLine(db.Model):
+    __tablename__ = "product_lines"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id"),
+        nullable=False
+    )
+    name = db.Column(db.String(255), nullable=False)
+
+    machines = db.relationship(
+        "Machine",
+        backref="product_line",
+        lazy=True
+    )
 
 
 class TimeEntry(db.Model):
