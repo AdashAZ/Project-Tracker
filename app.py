@@ -573,12 +573,34 @@ def create_app():
         project = Project.query.get_or_404(project_id)
         machine_name = (request.form.get("machine_name") or "").strip()
         product_line_id_raw = request.form.get("product_line_id")
+        new_product_line_name = (request.form.get("new_product_line") or "").strip()
 
         if not machine_name:
             flash("Machine / Asset # cannot be empty.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        product_line_id_value, product_line_error = resolve_product_line_id(product_line_id_raw, project.id)
+        # Handle product/line assignment
+        product_line_id_value = None
+        product_line_error = None
+
+        if new_product_line_name:
+            # Create new product/line
+            new_product_line = ProductLine(project_id=project.id, name=new_product_line_name)
+            db.session.add(new_product_line)
+            db.session.flush()  # Get the ID
+            product_line_id_value = new_product_line.id
+        elif product_line_id_raw:
+            # Use existing product/line
+            product_line_id_value, product_line_error = resolve_product_line_id(product_line_id_raw, project.id)
+        else:
+            # Use default 'General' product/line
+            general_line = ProductLine.query.filter_by(project_id=project.id, name="General").first()
+            if not general_line:
+                general_line = ProductLine(project_id=project.id, name="General")
+                db.session.add(general_line)
+                db.session.flush()
+            product_line_id_value = general_line.id
+
         if product_line_error:
             flash(product_line_error, "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
@@ -945,17 +967,22 @@ def create_app():
         project = Project.query.get_or_404(project_id)
 
         comment_text = (request.form.get("comment") or "").strip()
-        author = request.form.get("author") or "System"
+        machine_id_raw = request.form.get("machine_id")
 
         if not comment_text:
             flash("Comment cannot be empty.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#comments")
 
+        machine_id_value, machine_error = resolve_machine_id(machine_id_raw, project.id)
+        if machine_error:
+            flash(machine_error, "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#comments")
+
         db.session.add(
             Comment(
                 project_id=project.id,
+                machine_id=machine_id_value,
                 comment=comment_text,
-                author=author,
                 created_at=datetime.today().date(),
             )
         )
@@ -970,14 +997,19 @@ def create_app():
         item = Comment.query.filter_by(id=comment_id, project_id=project.id).first_or_404()
 
         comment_text = (request.form.get("comment") or "").strip()
-        author = request.form.get("author") or "System"
+        machine_id_raw = request.form.get("machine_id")
 
         if not comment_text:
             flash("Comment cannot be empty.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_comment=item.id) + "#comments")
 
+        machine_id_value, machine_error = resolve_machine_id(machine_id_raw, project.id)
+        if machine_error:
+            flash(machine_error, "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_comment=item.id) + "#comments")
+
         item.comment = comment_text
-        item.author = author
+        item.machine_id = machine_id_value
         db.session.commit()
 
         flash("Comment updated.", "success")
