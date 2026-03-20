@@ -20,6 +20,7 @@ from urllib.parse import quote
 from markupsafe import Markup, escape
 
 from models import db, Project, ProductLine, Machine, TimeEntry, Comment, MachineWorkType
+from sqlalchemy import case, desc
 
 ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
 MACHINE_STATUS_OPTIONS = ["N/S", "WIP", "Stopped", "In Review", "Completed"]
@@ -320,20 +321,25 @@ def create_app():
     @app.route("/")
     def dashboard():
         status_filter = request.args.get("status", type=str)
-
         query = Project.query
         if status_filter and status_filter in ALLOWED_STATUSES:
             query = query.filter_by(status=status_filter)
 
         completion_bucket = case((Project.status == "Completed", 1), else_=0)
-        projects = query.order_by(completion_bucket.asc(), Project.id.desc()).all()
+
+        projects = query.order_by(
+            completion_bucket.asc(),  # keeps Completed at bottom
+            case(
+                (Project.status == "Completed", Project.due_date),
+                else_=Project.id
+            ).desc()  # ← apply DESC to the whole CASE result
+        ).all()
 
         for project in projects:
             total_incurred = sum(te.hours for te in project.time_entries)
             project.incurred_hours_total = total_incurred
 
         return render_template("dashboard.html", projects=projects, status_filter=status_filter)
-
     @app.route("/open-path")
     def open_path():
         target = request.args.get("target", type=str) or ""

@@ -39,13 +39,13 @@
   </div>
 
   <div class="form-group">
-    <label>Product / Line + Machines / Asset #s</label>
+    <label>Product / Line </label>
     <input type="hidden" id="product_lines_payload" name="product_lines_payload" value="[]">
 
     <div id="product-line-builder-list" class="product-line-builder-list">
       <div class="product-line-builder-item" data-product-line-item>
         <div class="product-line-builder-top">
-          <label>Product / Line *</label>
+          <!--<label>Product / Line *</label>-->
           <button type="button" class="btn-mini product-line-remove-btn" data-remove-product-line>Remove</button>
         </div>
         <input type="text" class="product-line-name-input" placeholder="e.g. Auto Bottle Cutter Line">
@@ -53,7 +53,7 @@
         <div class="machine-builder-list" data-machine-builder-list>
           <div class="machine-builder-item" data-machine-item>
             <div class="machine-builder-top">
-              <label>Machine / Asset #</label>
+              <label>Machine / Asset #s</label>
               <button type="button" class="btn-mini machine-remove-btn" data-remove-machine>Remove</button>
             </div>
             <input type="text" class="machine-name-input" placeholder="e.g. Conv 1 - Filler">
@@ -74,7 +74,7 @@
             <button type="button" class="btn-mini" data-add-work-type>Add Work Type</button>
           </div>
         </div>
-
+</div>
         <button type="button" class="add-machine-btn" data-add-machine-row-btn>Add Machine</button>
       </div>
     </div>

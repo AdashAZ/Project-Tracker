@@ -468,8 +468,15 @@
     <form method="post" action="{{ url_for('add_comment', project_id=project.id) }}">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <div class="form-inline">
-        <label for="author">Author</label>
-        <input type="text" id="author" name="author" placeholder="Your name">
+        <label for="machine_id">Machine</label>
+        <select id="machine_id" name="machine_id">
+          <option value="">-- Select Machine --</option>
+          {% for machine in machines %}
+          <option value="{{ machine.id }}">
+            {{ machine.machine_name }} - {{ machine.product_line.name if machine.product_line else 'General' }}
+          </option>
+          {% endfor %}
+        </select>
 
         <label for="comment">Comment *</label>
         <input type="text" id="comment" name="comment" required>
