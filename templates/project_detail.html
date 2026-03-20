@@ -389,20 +389,20 @@
       </form>
 
     <div class="table-wrap">
-      <table>
+      <table id="time-entries-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Machine</th>
-            <th>Work Type</th>
-            <th>Hours</th>
-            <th>Notes</th>
+            <th class="sortable" data-sort="date">Date</th>
+            <th class="sortable" data-sort="machine">Machine</th>
+            <th class="sortable" data-sort="work_type">Work Type</th>
+            <th class="sortable" data-sort="hours">Hours</th>
+            <th class="sortable" data-sort="notes">Notes</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for entry in time_entries %}
-          <tr>
+          <tr data-entry-id="{{ entry.id }}" data-date="{{ entry.date.isoformat() if entry.date else '' }}" data-machine="{{ entry.machine.machine_name if entry.machine else 'No machine selected' }}" data-work-type="{{ entry.work_type }}" data-hours="{{ entry.hours }}" data-notes="{{ entry.notes or '' }}">
             <td>{{ entry.date or '' }}</td>
             <td>
               {% if entry.machine %}
@@ -573,4 +573,74 @@
     </div>
   </template>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const table = document.getElementById('time-entries-table');
+  if (table) {
+    const headers = table.querySelectorAll('th.sortable');
+    let currentSort = { column: null, direction: 'asc' };
+
+    headers.forEach(header => {
+      header.addEventListener('click', () => {
+        const column = header.dataset.sort;
+        
+        // Toggle direction if same column, otherwise reset to asc
+        if (currentSort.column === column) {
+          currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+          currentSort.column = column;
+          currentSort.direction = 'asc';
+        }
+
+        // Update header indicators
+        headers.forEach(h => {
+          h.classList.remove('sort-asc', 'sort-desc');
+          if (h.dataset.sort === currentSort.column) {
+            h.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+          }
+        });
+
+        sortTable(column, currentSort.direction);
+      });
+    });
+
+    function sortTable(column, direction) {
+      const tbody = table.querySelector('tbody');
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      
+      rows.sort((a, b) => {
+        const aValue = a.dataset[column];
+        const bValue = b.dataset[column];
+        
+        let comparison = 0;
+        
+        if (column === 'date') {
+          // Date sorting
+          const aDate = aValue ? new Date(aValue) : null;
+          const bDate = bValue ? new Date(bValue) : null;
+          
+          if (!aDate && !bDate) comparison = 0;
+          else if (!aDate) comparison = 1;
+          else if (!bDate) comparison = -1;
+          else comparison = aDate - bDate;
+        } else if (column === 'hours') {
+          // Numeric sorting for hours
+          const aNum = parseFloat(aValue) || 0;
+          const bNum = parseFloat(bValue) || 0;
+          comparison = aNum - bNum;
+        } else {
+          // String sorting for machine and work_type
+          comparison = aValue.localeCompare(bValue, undefined, { numeric: true });
+        }
+        
+        return direction === 'asc' ? comparison : -comparison;
+      });
+      
+      // Re-append rows in sorted order
+      rows.forEach(row => tbody.appendChild(row));
+    }
+  }
+});
+</script>
 {% endblock %}

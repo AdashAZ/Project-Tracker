@@ -1282,6 +1282,33 @@ tr:nth-child(even) td {
   border-color: #285a7d;
 }
 
+/* Sorting Styles */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.sortable::after {
+  content: '↕️';
+  position: absolute;
+  right: 8px;
+  opacity: 0.3;
+  font-size: 12px;
+}
+
+.sortable.sort-asc::after {
+  content: '↑';
+  opacity: 1;
+  color: var(--brand);
+}
+
+.sortable.sort-desc::after {
+  content: '↓';
+  opacity: 1;
+  color: var(--brand);
+}
+
 .dashboard-search-preview {
   border-color: #ccd5df;
 }
