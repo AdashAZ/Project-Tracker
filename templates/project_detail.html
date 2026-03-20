@@ -268,6 +268,21 @@
                   </div>
 
                   <div>
+                    <label for="edit-product_line_id-{{ machine.id }}">Product / Line</label>
+                    <select id="edit-product_line_id-{{ machine.id }}" name="product_line_id">
+                      <option value="">-- Select Existing or Create New --</option>
+                      {% for product_line in product_lines %}
+                      <option value="{{ product_line.id }}" {% if machine.product_line_id == product_line.id %}selected{% endif %}>{{ product_line.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label for="edit-new_product_line-{{ machine.id }}">Or Create New Product / Line</label>
+                    <input type="text" id="edit-new_product_line-{{ machine.id }}" name="new_product_line" placeholder="New product/line name">
+                  </div>
+
+                  <div>
                     <label for="edit-machine-status-{{ machine.id }}">Work Status</label>
                     <select id="edit-machine-status-{{ machine.id }}" name="status">
                       {% for status_option in machine_status_options %}
@@ -370,10 +385,7 @@
             <option value="">-- None --</option>
             {% for machine in machines %}
             <option value="{{ machine.id }}">
-              {{ machine.machine_name }}
-              {% if machine.project and (machine.project.product_line or project.product_line) %}
-                – {{ machine.project.product_line or project.product_line }}
-              {% endif %}
+              {{ machine.product_line.name if machine.product_line else 'General' }} - {{ machine.machine_name }}
             </option>
             {% endfor %}
           </select>
