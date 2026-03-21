@@ -10,6 +10,7 @@
     <label for="status-filter">Filter by status:</label>
     <select id="status-filter" name="status">
       <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+      <option value="Ongoing" {% if status_filter == 'Ongoing' %}selected{% endif %}>Ongoing</option>
       <option value="N/S" {% if status_filter == 'N/S' %}selected{% endif %}>N/S</option>
       <option value="WIP" {% if status_filter == 'WIP' %}selected{% endif %}>WIP</option>
       <option value="Stopped" {% if status_filter == 'Stopped' %}selected{% endif %}>Stopped</option>

@@ -80,7 +80,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const machinesJoined = row.dataset.machines || "";
         const machineList = splitMachineList(row.dataset.machineList || "");
 
-        const statusMatches = !selectedStatus || status === selectedStatus;
+        const statusMatches = !selectedStatus || 
+          (selectedStatus === "ongoing" && status !== "completed") ||
+          status === selectedStatus;
         let machineMatch = "";
         let queryMatches = true;
 
