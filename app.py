@@ -22,7 +22,7 @@ from markupsafe import Markup, escape
 from models import db, Project, ProductLine, Machine, TimeEntry, Comment, MachineWorkType
 from sqlalchemy import case, desc
 
-ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed", "Ongoing"}
+ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
 MACHINE_STATUS_OPTIONS = ["N/S", "WIP", "Stopped", "In Review", "Completed"]
 WORK_TYPE_OPTIONS = ["RA", "SC", "VV", "SOL", "Other"]
 MACHINE_MILESTONE_DEFINITIONS = [
@@ -323,12 +323,12 @@ def create_app():
         status_filter = request.args.get("status", type=str)
         query = Project.query
         
+        # Default to "Ongoing" if no status filter is provided
+        if not status_filter:
+            status_filter = "Ongoing"
+        
         if status_filter and status_filter in ALLOWED_STATUSES:
-            if status_filter == "Ongoing":
-                # Show all projects that are not completed
-                query = query.filter(Project.status != "Completed")
-            else:
-                query = query.filter_by(status=status_filter)
+            query = query.filter_by(status=status_filter)
 
         completion_bucket = case((Project.status == "Completed", 1), else_=0)
 
