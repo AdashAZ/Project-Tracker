@@ -199,6 +199,11 @@
                   {% endfor %}
                 </select>
               </form>
+              {% if machine.status == 'Completed' %}
+              <div class="v2-button-container">
+                <button type="button" class="btn-mini btn-v2-add" data-machine-id="{{ machine.id }}">Add V2.0</button>
+              </div>
+              {% endif %}
             </td>
             <td class="machine-col-tracked">
               <div class="machine-hours-cell">

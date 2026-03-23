@@ -1126,6 +1126,28 @@ tr:nth-child(even) td {
   }
 }
 
+/* ---------------------------
+   V2.0 button styling
+   --------------------------- */
+.v2-button-container {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+}
+.btn-v2-add {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+.btn-v2-add:hover {
+  background-color: #218838;
+}
+
 /* Clean asphalt theme overrides */
 :root {
   --bg-0: #edf1f5;
