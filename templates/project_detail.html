@@ -201,7 +201,11 @@
               </form>
               {% if machine.status == 'Completed' %}
               <div class="v2-button-container">
+                {% if machine.machine_name.endswith(' V2.0') %}
+                <button type="button" class="btn-mini btn-v3-add" data-machine-id="{{ machine.id }}">Add V3.0</button>
+                {% else %}
                 <button type="button" class="btn-mini btn-v2-add" data-machine-id="{{ machine.id }}">Add V2.0</button>
+                {% endif %}
               </div>
               {% endif %}
             </td>

@@ -591,6 +591,19 @@ document.addEventListener("DOMContentLoaded", () => {
       // Create a new machine name with V2.0 suffix
       const newMachineName = `${originalMachineName} V2.0`;
 
+      // Get work types from the machine work types map
+      const machineWorkTypesMapScript = document.getElementById("machine-work-types-map");
+      let machineWorkTypesMap = {};
+      if (machineWorkTypesMapScript?.textContent) {
+        try {
+          machineWorkTypesMap = JSON.parse(machineWorkTypesMapScript.textContent);
+        } catch {
+          machineWorkTypesMap = {};
+        }
+      }
+
+      const workTypes = machineWorkTypesMap[machineId] || [];
+
       // Create a form to submit the new machine
       const form = document.createElement("form");
       form.method = "POST";
@@ -620,10 +633,97 @@ document.addEventListener("DOMContentLoaded", () => {
       newProductLineInput.name = "new_product_line";
       newProductLineInput.value = productLineName;
 
+      // Create hidden input for work types
+      const workTypesInput = document.createElement("input");
+      workTypesInput.type = "hidden";
+      workTypesInput.name = "work_types_payload";
+      workTypesInput.value = JSON.stringify(workTypes.map(workType => ({ work_type: workType, other_description: null })));
+
       form.appendChild(csrfInput);
       form.appendChild(machineNameInput);
       form.appendChild(productLineInput);
       form.appendChild(newProductLineInput);
+      form.appendChild(workTypesInput);
+
+      document.body.appendChild(form);
+      form.submit();
+    });
+  });
+
+  // ---------------------------
+  // Project detail: V3.0 button functionality
+  // ---------------------------
+  const v3AddButtons = Array.from(document.querySelectorAll(".btn-v3-add"));
+  v3AddButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const machineId = button.dataset.machineId;
+      if (!machineId) return;
+
+      const projectUrl = window.location.pathname;
+      const projectId = projectUrl.match(/\/projects\/(\d+)/)?.[1];
+      if (!projectId) return;
+
+      // Create a new machine with the same name and other columns
+      const machineName = button.closest("tr").querySelector("td").textContent.trim();
+      const productLineName = machineName.split(" - ")[0];
+      const originalMachineName = machineName.split(" - ")[1];
+
+      // Create a new machine name with V3.0 suffix
+      const newMachineName = `${originalMachineName} V3.0`;
+
+      // Get work types from the machine work types map
+      const machineWorkTypesMapScript = document.getElementById("machine-work-types-map");
+      let machineWorkTypesMap = {};
+      if (machineWorkTypesMapScript?.textContent) {
+        try {
+          machineWorkTypesMap = JSON.parse(machineWorkTypesMapScript.textContent);
+        } catch {
+          machineWorkTypesMap = {};
+        }
+      }
+
+      const workTypes = machineWorkTypesMap[machineId] || [];
+
+      // Create a form to submit the new machine
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = `/projects/${projectId}/machines`;
+
+      // Create hidden input for CSRF token
+      const csrfInput = document.createElement("input");
+      csrfInput.type = "hidden";
+      csrfInput.name = "_csrf_token";
+      csrfInput.value = document.querySelector('input[name="_csrf_token"]').value;
+
+      // Create hidden input for machine name
+      const machineNameInput = document.createElement("input");
+      machineNameInput.type = "hidden";
+      machineNameInput.name = "machine_name";
+      machineNameInput.value = newMachineName;
+
+      // Create hidden input for product line
+      const productLineInput = document.createElement("input");
+      productLineInput.type = "hidden";
+      productLineInput.name = "product_line_id";
+      productLineInput.value = ""; // Will be handled by the backend
+
+      // Create hidden input for new product line
+      const newProductLineInput = document.createElement("input");
+      newProductLineInput.type = "hidden";
+      newProductLineInput.name = "new_product_line";
+      newProductLineInput.value = productLineName;
+
+      // Create hidden input for work types
+      const workTypesInput = document.createElement("input");
+      workTypesInput.type = "hidden";
+      workTypesInput.name = "work_types_payload";
+      workTypesInput.value = JSON.stringify(workTypes.map(workType => ({ work_type: workType, other_description: null })));
+
+      form.appendChild(csrfInput);
+      form.appendChild(machineNameInput);
+      form.appendChild(productLineInput);
+      form.appendChild(newProductLineInput);
+      form.appendChild(workTypesInput);
 
       document.body.appendChild(form);
       form.submit();

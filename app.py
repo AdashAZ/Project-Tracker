@@ -579,6 +579,7 @@ def create_app():
         machine_name = (request.form.get("machine_name") or "").strip()
         product_line_id_raw = request.form.get("product_line_id")
         new_product_line_name = (request.form.get("new_product_line") or "").strip()
+        work_types_payload_raw = request.form.get("work_types_payload")
 
         if not machine_name:
             flash("Machine / Asset # cannot be empty.", "error")
@@ -610,14 +611,32 @@ def create_app():
             flash(product_line_error, "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        db.session.add(
-            Machine(
-                project_id=project.id,
-                product_line_id=product_line_id_value,
-                machine_name=machine_name,
-                status="N/S",
-            )
+        # Parse work types payload
+        parsed_work_types, work_types_error = parse_work_types_payload(work_types_payload_raw, require_one=False)
+        if work_types_error:
+            flash(work_types_error, "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        machine = Machine(
+            project_id=project.id,
+            product_line_id=product_line_id_value,
+            machine_name=machine_name,
+            status="N/S",
         )
+        db.session.add(machine)
+        db.session.flush()
+
+        # Add work types if provided
+        if parsed_work_types:
+            for wt in parsed_work_types:
+                db.session.add(
+                    MachineWorkType(
+                        machine_id=machine.id,
+                        work_type=wt["work_type"],
+                        other_description=wt["other_description"],
+                    )
+                )
+
         db.session.commit()
 
         flash("Machine / Asset # added. Use Edit to configure work types.", "success")

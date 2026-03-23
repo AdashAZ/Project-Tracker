@@ -1148,6 +1148,23 @@ tr:nth-child(even) td {
   background-color: #218838;
 }
 
+/* ---------------------------
+   V3.0 button styling
+   --------------------------- */
+.btn-v3-add {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+.btn-v3-add:hover {
+  background-color: #218838;
+}
+
 /* Clean asphalt theme overrides */
 :root {
   --bg-0: #edf1f5;
