@@ -670,7 +670,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const originalMachineName = machineName.split(" - ")[1];
 
       // Create a new machine name with V3.0 suffix
-      const newMachineName = `${originalMachineName} V3.0`;
+      const newMachineName = originalMachineName.replace(/ V2\.0$/, ' V3.0') + (originalMachineName.endsWith(' V2.0') ? '' : ' V3.0');
 
       // Get work types from the machine work types map
       const machineWorkTypesMapScript = document.getElementById("machine-work-types-map");
