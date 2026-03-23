@@ -188,7 +188,7 @@
         <tbody>
           {% for machine in machines %}
           {% set tracked_hours = machine_hours.get(machine.id, 0.0) %}
-          <tr class="machine-status-{{ machine.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_row_complete.get(machine.id) %} machine-complete-row{% endif %}">
+          <tr class="machine-status-{{ machine.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_row_complete.get(machine.id) %} machine-complete-row{% endif %}" data-product-line-id="{{ machine.product_line_id }}">
             <td>{{ machine.product_line.name if machine.product_line else 'General' }} - {{ machine.machine_name }}</td>
             <td class="machine-col-status">
               <form method="post" action="{{ url_for('update_machine_status', project_id=project.id, machine_id=machine.id) }}">
@@ -201,7 +201,9 @@
               </form>
               {% if machine.status == 'Completed' %}
               <div class="v2-button-container">
-                {% if machine.machine_name.endswith(' V2.0') %}
+                {% if machine.machine_name.endswith(' V3.0') %}
+                <!-- No button for V3.0+ machines -->
+                {% elif machine.machine_name.endswith(' V2.0') %}
                 <button type="button" class="btn-mini btn-v3-add" data-machine-id="{{ machine.id }}">Add V3.0</button>
                 {% else %}
                 <button type="button" class="btn-mini btn-v2-add" data-machine-id="{{ machine.id }}">Add V2.0</button>

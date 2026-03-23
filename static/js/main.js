@@ -583,8 +583,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const projectId = projectUrl.match(/\/projects\/(\d+)/)?.[1];
       if (!projectId) return;
 
+      // Get the machine row to extract product line ID
+      const machineRow = button.closest("tr");
+      const productLineId = machineRow.dataset.productLineId;
+
       // Create a new machine with the same name and other columns
-      const machineName = button.closest("tr").querySelector("td").textContent.trim();
+      const machineName = machineRow.querySelector("td").textContent.trim();
       const productLineName = machineName.split(" - ")[0];
       const originalMachineName = machineName.split(" - ")[1];
 
@@ -621,17 +625,11 @@ document.addEventListener("DOMContentLoaded", () => {
       machineNameInput.name = "machine_name";
       machineNameInput.value = newMachineName;
 
-      // Create hidden input for product line
+      // Create hidden input for product line - use existing product line ID
       const productLineInput = document.createElement("input");
       productLineInput.type = "hidden";
       productLineInput.name = "product_line_id";
-      productLineInput.value = ""; // Will be handled by the backend
-
-      // Create hidden input for new product line
-      const newProductLineInput = document.createElement("input");
-      newProductLineInput.type = "hidden";
-      newProductLineInput.name = "new_product_line";
-      newProductLineInput.value = productLineName;
+      productLineInput.value = productLineId || "";
 
       // Create hidden input for work types
       const workTypesInput = document.createElement("input");
@@ -642,7 +640,6 @@ document.addEventListener("DOMContentLoaded", () => {
       form.appendChild(csrfInput);
       form.appendChild(machineNameInput);
       form.appendChild(productLineInput);
-      form.appendChild(newProductLineInput);
       form.appendChild(workTypesInput);
 
       document.body.appendChild(form);
@@ -663,8 +660,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const projectId = projectUrl.match(/\/projects\/(\d+)/)?.[1];
       if (!projectId) return;
 
+      // Get the machine row to extract product line ID
+      const machineRow = button.closest("tr");
+      const productLineId = machineRow.dataset.productLineId;
+
       // Create a new machine with the same name and other columns
-      const machineName = button.closest("tr").querySelector("td").textContent.trim();
+      const machineName = machineRow.querySelector("td").textContent.trim();
       const productLineName = machineName.split(" - ")[0];
       const originalMachineName = machineName.split(" - ")[1];
 
@@ -701,17 +702,11 @@ document.addEventListener("DOMContentLoaded", () => {
       machineNameInput.name = "machine_name";
       machineNameInput.value = newMachineName;
 
-      // Create hidden input for product line
+      // Create hidden input for product line - use existing product line ID
       const productLineInput = document.createElement("input");
       productLineInput.type = "hidden";
       productLineInput.name = "product_line_id";
-      productLineInput.value = ""; // Will be handled by the backend
-
-      // Create hidden input for new product line
-      const newProductLineInput = document.createElement("input");
-      newProductLineInput.type = "hidden";
-      newProductLineInput.name = "new_product_line";
-      newProductLineInput.value = productLineName;
+      productLineInput.value = productLineId || "";
 
       // Create hidden input for work types
       const workTypesInput = document.createElement("input");
@@ -722,7 +717,6 @@ document.addEventListener("DOMContentLoaded", () => {
       form.appendChild(csrfInput);
       form.appendChild(machineNameInput);
       form.appendChild(productLineInput);
-      form.appendChild(newProductLineInput);
       form.appendChild(workTypesInput);
 
       document.body.appendChild(form);
