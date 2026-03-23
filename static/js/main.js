@@ -43,8 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const limited = matchedRows.slice(0, 20);
-      const links = limited
+      const links = matchedRows
         .map((row) => {
           const href = row.dataset.href || "#";
           const customer = row.dataset.customer || "";
