@@ -111,6 +111,8 @@ h3 {
   width: min(1460px, 96vw);
   margin: 1.1rem auto 1.8rem;
   padding: 0;
+  max-width: 98vw;
+  min-width: 320px;
 }
 
 .flash-messages {
@@ -186,6 +188,38 @@ textarea {
   width: min(100%, 520px);
 }
 
+/* Responsive form inputs */
+input[type="text"],
+input[type="date"],
+input[type="number"],
+select,
+textarea {
+  width: min(100%, 380px);
+  max-width: 100%;
+  min-width: 220px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: min(100%, 520px);
+  max-width: 100%;
+  min-width: 220px;
+}
+
+.form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.55rem 0.8rem;
+  padding: 0.8rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #fbfdff, #f2f7ff);
+  width: 100%;
+  max-width: 100%;
+}
+
 textarea {
   resize: vertical;
 }
@@ -256,9 +290,10 @@ table {
 table th,
 table td {
   border: 1px solid #d9e3f1;
-  padding: 0.46rem 0.6rem;
+  padding: clamp(0.35rem, 1.2vw, 0.6rem);
   text-align: left;
   vertical-align: top;
+  font-size: clamp(0.75rem, 1.4vw, 0.9rem);
 }
 
 table th {
@@ -494,7 +529,8 @@ tr:nth-child(even) td {
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 14px, rgba(255, 255, 255, 0.02) 14px 28px);
   color: #f2f7ff;
   box-shadow: 0 16px 34px rgba(13, 35, 66, 0.28);
-  padding: 1.1rem 1.2rem;
+  padding: clamp(0.8rem, 2.2vw, 1.2rem);
+  min-height: clamp(140px, 18vw, 220px);
 }
 
 .hero-main {
