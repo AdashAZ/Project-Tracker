@@ -258,7 +258,12 @@
             {% endfor %}
 
             <td class="row-actions">
-              <a href="{{ url_for('project_detail', project_id=project.id, edit_machine=machine.id) }}#machines">Edit</a>
+              <a href="{{ url_for('project_detail', project_id=project.id, edit_machine=machine.id) }}#machines" title="Edit Machine" aria-label="Edit Machine">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </a>
               <form method="post" action="{{ url_for('delete_machine', project_id=project.id, machine_id=machine.id) }}" onsubmit="return confirm('Delete this machine / asset #? Linked time entries will keep data but lose machine link.');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-link-danger">Delete</button>
@@ -323,7 +328,8 @@
                   </div>
 
                   <div>
-                    <label for="edit-re
+                  <label for="edit-report-sent-review-edb-date-{{ machine.id }}">Report Sent for Review in EDB</label>
+                  <input type="date" id="edit-report-sent-review-edb-date-{{ machine.id }}" name="report_sent_review_edb_date" value="{{ machine.report_sent_review_edb_date.isoformat() if machine.report_sent_review_edb_date else '' }}">
 
                 <div class="machine-work-types-editor" data-machine-work-types-editor>
                   <div class="machine-work-types-header">
@@ -426,7 +432,12 @@
             <td>{{ "%.1f"|format(entry.hours) }}</td>
             <td>{{ entry.notes }}</td>
             <td class="row-actions">
-              <a href="{{ url_for('project_detail', project_id=project.id, edit_time_entry=entry.id) }}#time-entries">Edit</a>
+              <a href="{{ url_for('project_detail', project_id=project.id, edit_time_entry=entry.id) }}#time-entries" title="Edit Time Entry" aria-label="Edit Time Entry">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </a>
               <form method="post" action="{{ url_for('delete_time_entry', project_id=project.id, entry_id=entry.id) }}" onsubmit="return confirm('Delete this time entry?');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-link-danger">Delete</button>
@@ -531,7 +542,12 @@
             </td>
             <td>{{ item.comment_html }}</td>
             <td class="row-actions">
-              <a href="{{ url_for('project_detail', project_id=project.id, edit_comment=item.id) }}#comments">Edit</a>
+              <a href="{{ url_for('project_detail', project_id=project.id, edit_comment=item.id) }}#comments" title="Edit Comment" aria-label="Edit Comment">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </a>
               <form method="post" action="{{ url_for('delete_comment', project_id=project.id, comment_id=item.id) }}" onsubmit="return confirm('Delete this comment?');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-link-danger">Delete</button>
