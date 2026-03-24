@@ -20,6 +20,7 @@ from urllib.parse import quote
 from markupsafe import Markup, escape
 
 from models import db, Project, ProductLine, Machine, TimeEntry, Comment, MachineWorkType
+from admin import admin_bp
 from sqlalchemy import case, desc
 
 ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
@@ -60,6 +61,9 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     db.init_app(app)
+
+    # Register admin blueprint
+    app.register_blueprint(admin_bp)
 
     with app.app_context():
         db.create_all()

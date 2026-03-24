@@ -1,0 +1,566 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel - Project Tracker{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard">
+    <div class="admin-header">
+        <h1>Admin Panel</h1>
+        <p>System administration and data management</p>
+    </div>
+
+    <!-- System Status Section -->
+    <section class="admin-section">
+        <div class="section-title-row">
+            <h2>System Status</h2>
+            <span class="section-caption">Overview of your project data</span>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_projects }}</div>
+                <div class="stat-label">Total Projects</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_machines }}</div>
+                <div class="stat-label">Total Machines</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_time_entries }}</div>
+                <div class="stat-label">Time Entries</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_comments }}</div>
+                <div class="stat-label">Comments</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_product_lines }}</div>
+                <div class="stat-label">Product Lines</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_work_types }}</div>
+                <div class="stat-label">Work Types</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.db_size_mb }} MB</div>
+                <div class="stat-label">Database Size</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">
+                    {% if stats.last_backup %}
+                        {{ stats.last_backup.time }}
+                    {% else %}
+                        Never
+                    {% endif %}
+                </div>
+                <div class="stat-label">Last Backup</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Database Operations Section -->
+    <section class="admin-section">
+        <div class="section-title-row">
+            <h2>Database Operations</h2>
+            <span class="section-caption">Backup, restore, and export your data</span>
+        </div>
+        
+        <div class="operations-grid">
+            <div class="operation-card">
+                <div class="operation-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                </div>
+                <div class="operation-content">
+                    <h3>Create Backup</h3>
+                    <p>Create a backup of your entire database</p>
+                    <button type="button" class="btn-primary" id="backup-btn">
+                        <span class="btn-spinner" style="display: none;"></span>
+                        <span class="btn-text">Create Backup</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="operation-card">
+                <div class="operation-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12h18"></path>
+                        <path d="M3 6h18"></path>
+                        <path d="M3 18h18"></path>
+                        <path d="M8 12l-4 4 4 4"></path>
+                    </svg>
+                </div>
+                <div class="operation-content">
+                    <h3>Export Data</h3>
+                    <p>Export all data to CSV files</p>
+                    <button type="button" class="btn-secondary" id="export-btn">
+                        <span class="btn-spinner" style="display: none;"></span>
+                        <span class="btn-text">Export to CSV</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="operation-card">
+                <div class="operation-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                </div>
+                <div class="operation-content">
+                    <h3>View Logs</h3>
+                    <p>Check system logs and error messages</p>
+                    <a href="{{ url_for('admin.view_logs') }}" class="btn-secondary">View Logs</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Backup Files Section -->
+    <section class="admin-section">
+        <div class="section-title-row">
+            <h2>Backup Files</h2>
+            <span class="section-caption">Manage your database backups</span>
+        </div>
+        
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Size</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if backup_files %}
+                        {% for backup in backup_files %}
+                        <tr>
+                            <td>{{ backup.filename }}</td>
+                            <td>{{ backup.size_mb }} MB</td>
+                            <td>{{ backup.created }}</td>
+                            <td class="row-actions">
+                                <button type="button" class="btn-mini btn-restore" data-filename="{{ backup.filename }}">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                        <path d="M3 3v5h5"></path>
+                                    </svg>
+                                    Restore
+                                </button>
+                                <a href="{{ url_for('admin.download_file', filename=backup.filename) }}" class="btn-mini">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    Download
+                                </a>
+                                <button type="button" class="btn-mini btn-link-danger btn-delete-backup" data-filename="{{ backup.filename }}">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 6h18"></path>
+                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                    </svg>
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-state">No backup files found</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Export Files Section -->
+    <section class="admin-section">
+        <div class="section-title-row">
+            <h2>Export Files</h2>
+            <span class="section-caption">Download your exported CSV data</span>
+        </div>
+        
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Filename</th>
+                        <th>Size</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if export_files %}
+                        {% for export in export_files %}
+                        <tr>
+                            <td>{{ export.filename }}</td>
+                            <td>{{ export.size_mb }} MB</td>
+                            <td>{{ export.created }}</td>
+                            <td class="row-actions">
+                                <a href="{{ url_for('admin.download_file', filename=export.filename) }}" class="btn-mini">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    Download
+                                </a>
+                                <button type="button" class="btn-mini btn-link-danger btn-delete-export" data-filename="{{ export.filename }}">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 6h18"></path>
+                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                    </svg>
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="empty-state">No export files found</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<!-- Custom Modal Overlay -->
+<div id="admin-modal-overlay" class="custom-modal-overlay">
+    <div class="custom-modal">
+        <div class="custom-modal-header">
+            <div class="custom-modal-title" id="admin-modal-title">Confirm Action</div>
+        </div>
+        <div class="custom-modal-body" id="admin-modal-body">
+            Are you sure you want to proceed?
+        </div>
+        <div class="custom-modal-actions">
+            <button type="button" class="custom-modal-btn secondary" id="admin-modal-cancel">Cancel</button>
+            <button type="button" class="custom-modal-btn danger" id="admin-modal-confirm">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Modal -->
+<div id="progress-modal-overlay" class="custom-modal-overlay">
+    <div class="custom-modal">
+        <div class="custom-modal-header">
+            <div class="custom-modal-title" id="progress-modal-title">Processing</div>
+        </div>
+        <div class="custom-modal-body">
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text" id="progress-text">0%</div>
+            </div>
+            <div class="progress-message" id="progress-message">Please wait...</div>
+        </div>
+        <div class="custom-modal-actions">
+            <button type="button" class="custom-modal-btn secondary" id="progress-modal-close">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const backupBtn = document.getElementById('backup-btn');
+    const exportBtn = document.getElementById('export-btn');
+    const modalOverlay = document.getElementById('admin-modal-overlay');
+    const modalTitle = document.getElementById('admin-modal-title');
+    const modalBody = document.getElementById('admin-modal-body');
+    const modalCancel = document.getElementById('admin-modal-cancel');
+    const modalConfirm = document.getElementById('admin-modal-confirm');
+    const progressOverlay = document.getElementById('progress-modal-overlay');
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+    const progressMessage = document.getElementById('progress-message');
+    const progressClose = document.getElementById('progress-modal-close');
+    
+    let pendingAction = null;
+    let pendingData = null;
+
+    function showModal(title, body, action, data) {
+        modalTitle.textContent = title;
+        modalBody.textContent = body;
+        pendingAction = action;
+        pendingData = data;
+        modalOverlay.classList.add('show');
+    }
+
+    function hideModal() {
+        modalOverlay.classList.remove('show');
+        pendingAction = null;
+        pendingData = null;
+    }
+
+    function showProgress(title, message) {
+        document.getElementById('progress-modal-title').textContent = title;
+        progressMessage.textContent = message;
+        progressFill.style.width = '0%';
+        progressText.textContent = '0%';
+        progressOverlay.classList.add('show');
+    }
+
+    function updateProgress(percent, message) {
+        progressFill.style.width = percent + '%';
+        progressText.textContent = percent + '%';
+        if (message) {
+            progressMessage.textContent = message;
+        }
+    }
+
+    function hideProgress() {
+        progressOverlay.classList.remove('show');
+    }
+
+    modalCancel.addEventListener('click', hideModal);
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) hideModal();
+    });
+
+    modalConfirm.addEventListener('click', async () => {
+        if (!pendingAction) return;
+        
+        hideModal();
+        
+        try {
+            if (pendingAction === 'backup') {
+                showProgress('Creating Backup', 'Please wait while we create a backup of your database...');
+                updateProgress(10, 'Initializing backup process...');
+                
+                const response = await fetch('/admin/backup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                    }
+                });
+                
+                updateProgress(50, 'Copying database file...');
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateProgress(100, 'Backup completed successfully!');
+                    setTimeout(() => {
+                        hideProgress();
+                        showSuccessMessage('Backup created successfully: ' + result.filename);
+                        location.reload();
+                    }, 1000);
+                } else {
+                    throw new Error(result.message);
+                }
+            } else if (pendingAction === 'restore') {
+                showProgress('Restoring Database', 'Please wait while we restore your database...');
+                updateProgress(10, 'Creating backup of current database...');
+                
+                const response = await fetch('/admin/restore', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                    },
+                    body: JSON.stringify({ filename: pendingData })
+                });
+                
+                updateProgress(50, 'Restoring from backup file...');
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateProgress(100, 'Database restored successfully!');
+                    setTimeout(() => {
+                        hideProgress();
+                        showSuccessMessage('Database restored successfully from: ' + pendingData);
+                        location.reload();
+                    }, 1000);
+                } else {
+                    throw new Error(result.message);
+                }
+            } else if (pendingAction === 'export') {
+                showProgress('Exporting Data', 'Please wait while we export your data to CSV...');
+                updateProgress(10, 'Gathering data from all tables...');
+                
+                const response = await fetch('/admin/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                    }
+                });
+                
+                updateProgress(50, 'Creating CSV files...');
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateProgress(100, 'Export completed successfully!');
+                    setTimeout(() => {
+                        hideProgress();
+                        showSuccessMessage('Data exported successfully: ' + result.filename);
+                        location.reload();
+                    }, 1000);
+                } else {
+                    throw new Error(result.message);
+                }
+            }
+        } catch (error) {
+            hideProgress();
+            showErrorMessage('Error: ' + error.message);
+        }
+    });
+
+    progressClose.addEventListener('click', hideProgress);
+
+    backupBtn.addEventListener('click', () => {
+        showModal(
+            'Create Database Backup',
+            'This will create a backup of your entire database. Continue?',
+            'backup'
+        );
+    });
+
+    exportBtn.addEventListener('click', () => {
+        showModal(
+            'Export Data to CSV',
+            'This will export all your data to CSV files. Continue?',
+            'export'
+        );
+    });
+
+    // Restore buttons
+    document.querySelectorAll('.btn-restore').forEach(btn => {
+        btn.addEventListener('click', () => {
+            showModal(
+                'Restore Database',
+                'This will overwrite your current database with the selected backup. A backup of the current database will be created first. Continue?',
+                'restore',
+                btn.dataset.filename
+            );
+        });
+    });
+
+    // Delete backup buttons
+    document.querySelectorAll('.btn-delete-backup').forEach(btn => {
+        btn.addEventListener('click', () => {
+            showModal(
+                'Delete Backup File',
+                'Are you sure you want to delete this backup file? This action cannot be undone.',
+                'delete_backup',
+                btn.dataset.filename
+            );
+        });
+    });
+
+    // Delete export buttons
+    document.querySelectorAll('.btn-delete-export').forEach(btn => {
+        btn.addEventListener('click', () => {
+            showModal(
+                'Delete Export File',
+                'Are you sure you want to delete this export file? This action cannot be undone.',
+                'delete_export',
+                btn.dataset.filename
+            );
+        });
+    });
+
+    // Handle delete actions
+    modalConfirm.addEventListener('click', async () => {
+        if (pendingAction === 'delete_backup') {
+            hideModal();
+            try {
+                const response = await fetch(`/admin/delete_backup/${pendingData}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showSuccessMessage('Backup file deleted successfully');
+                    location.reload();
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                showErrorMessage('Error deleting backup: ' + error.message);
+            }
+        } else if (pendingAction === 'delete_export') {
+            hideModal();
+            try {
+                const response = await fetch(`/admin/delete_export/${pendingData}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                    }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showSuccessMessage('Export file deleted successfully');
+                    location.reload();
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                showErrorMessage('Error deleting export: ' + error.message);
+            }
+        }
+    });
+
+    function showSuccessMessage(message) {
+        // Create a temporary success message
+        const successDiv = document.createElement('div');
+        successDiv.className = 'alert alert-success';
+        successDiv.textContent = message;
+        successDiv.style.position = 'fixed';
+        successDiv.style.top = '20px';
+        successDiv.style.right = '20px';
+        successDiv.style.backgroundColor = '#d4edda';
+        successDiv.style.border = '1px solid #c3e6cb';
+        successDiv.style.color = '#155724';
+        successDiv.style.padding = '10px 20px';
+        successDiv.style.borderRadius = '4px';
+        successDiv.style.zIndex = '1000';
+        
+        document.body.appendChild(successDiv);
+        
+        setTimeout(() => {
+            successDiv.remove();
+        }, 5000);
+    }
+
+    function showErrorMessage(message) {
+        // Create a temporary error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger';
+        errorDiv.textContent = message;
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '20px';
+        errorDiv.style.right = '20px';
+        errorDiv.style.backgroundColor = '#f8d7da';
+        errorDiv.style.border = '1px solid #f5c6cb';
+        errorDiv.style.color = '#721c24';
+        errorDiv.style.padding = '10px 20px';
+        errorDiv.style.borderRadius = '4px';
+        errorDiv.style.zIndex = '1000';
+        
+        document.body.appendChild(errorDiv);
+        
+        setTimeout(() => {
+            errorDiv.remove();
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

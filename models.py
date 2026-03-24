@@ -1,5 +1,5 @@
 # models.py
-from datetime import date
+from datetime import date, datetime
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -128,6 +128,35 @@ class ProductLine(db.Model):
         backref="product_line",
         lazy=True
     )
+
+
+class WorkType(db.Model):
+    __tablename__ = 'work_types'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text)
+    is_default = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<WorkType {self.name}>'
+
+
+class MilestoneDefinition(db.Model):
+    __tablename__ = 'milestone_definitions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    description = db.Column(db.Text)
+    percentage = db.Column(db.Float, nullable=False)  # Percentage of total project hours
+    is_default = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<MilestoneDefinition {self.name}>'
 
 
 class TimeEntry(db.Model):
