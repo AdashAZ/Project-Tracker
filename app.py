@@ -636,9 +636,13 @@ def create_app():
                 "label": format_work_type_label(work_type, other_description)
             })
 
+        # If no work types provided, add a default "RA" work type
         if not parsed_work_types:
-            flash("At least one work type is required.", "error")
-            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+            parsed_work_types.append({
+                "work_type": "RA",
+                "other_description": None,
+                "label": "RA"
+            })
 
         machine = Machine(
             project_id=project.id,
