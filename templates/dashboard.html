@@ -106,7 +106,7 @@
       <td>
         <div class="dash-progress-wrap">
           <div class="dash-progress-track">
-            <div class="dash-progress-fill {{ pct_class }}" style="width: {{ "%.1f"|format(pct_fill) }}%"></div>
+            <div class="dash-progress-fill {{ pct_class }}" style="width: {{ "%.1f"|format(pct_fill) }}%" data-completed="{{ 'true' if pct_raw >= 100 else 'false' }}"></div>
           </div>
           <span class="dash-progress-text">{{ "%.1f"|format(pct_raw) }}%</span>
         </div>
