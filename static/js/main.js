@@ -570,6 +570,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Initialize section visibility - show all sections by default
+  const machinesSection = document.getElementById("machines");
+  const machinesButton = document.querySelector('.section-toggle-btn[data-target="machines"]');
+  const timeEntriesSection = document.getElementById("time-entries");
+  const timeEntriesButton = document.querySelector('.section-toggle-btn[data-target="time-entries"]');
+  const commentsSection = document.getElementById("comments");
+  const commentsButton = document.querySelector('.section-toggle-btn[data-target="comments"]');
+
+  if (machinesSection && machinesButton) {
+    machinesSection.style.display = "";
+    machinesButton.classList.add("is-active");
+  }
+  if (timeEntriesSection && timeEntriesButton) {
+    timeEntriesSection.style.display = "";
+    timeEntriesButton.classList.add("is-active");
+  }
+  if (commentsSection && commentsButton) {
+    commentsSection.style.display = "";
+    commentsButton.classList.add("is-active");
+  }
+
   // ---------------------------
   // Project detail: V2.0 button functionality
   // ---------------------------
