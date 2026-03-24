@@ -266,7 +266,13 @@
               </a>
               <form method="post" action="{{ url_for('delete_machine', project_id=project.id, machine_id=machine.id) }}" onsubmit="return confirm('Delete this machine / asset #? Linked time entries will keep data but lose machine link.');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn-link-danger">Delete</button>
+                <button type="submit" class="btn-link-danger" title="Delete Machine" aria-label="Delete Machine">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                  </svg>
+                </button>
               </form>
             </td>
           </tr>
@@ -440,7 +446,13 @@
               </a>
               <form method="post" action="{{ url_for('delete_time_entry', project_id=project.id, entry_id=entry.id) }}" onsubmit="return confirm('Delete this time entry?');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn-link-danger">Delete</button>
+                <button type="submit" class="btn-link-danger" title="Delete Time Entry" aria-label="Delete Time Entry">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                  </svg>
+                </button>
               </form>
             </td>
           </tr>
@@ -550,7 +562,13 @@
               </a>
               <form method="post" action="{{ url_for('delete_comment', project_id=project.id, comment_id=item.id) }}" onsubmit="return confirm('Delete this comment?');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn-link-danger">Delete</button>
+                <button type="submit" class="btn-link-danger" title="Delete Comment" aria-label="Delete Comment">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                  </svg>
+                </button>
               </form>
             </td>
           </tr>
