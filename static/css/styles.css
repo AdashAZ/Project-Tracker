@@ -533,6 +533,45 @@ tr:nth-child(even) td {
   min-height: clamp(140px, 18vw, 220px);
 }
 
+/* Enhanced responsive hero section */
+@media (max-width: 1160px) {
+  .project-hero {
+    grid-template-columns: 1fr;
+    min-height: clamp(160px, 22vw, 260px);
+  }
+}
+
+@media (max-width: 760px) {
+  .project-hero {
+    padding: clamp(0.6rem, 2.5vw, 1rem);
+    min-height: clamp(180px, 28vw, 300px);
+    gap: 0.8rem;
+  }
+  
+  .hero-health-grid {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+  
+  .hero-health-item {
+    padding: 0.35rem;
+  }
+  
+  .usage-progress-wrap-lg .usage-progress-track {
+    height: 0.6rem;
+  }
+  
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+  
+  .hero-actions button {
+    width: 100%;
+  }
+}
+
 .hero-main {
   min-width: 0;
 }
@@ -705,6 +744,7 @@ tr:nth-child(even) td {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+  margin-bottom: 0.6rem;
 }
 
 .section-toggle-btn {
@@ -714,6 +754,9 @@ tr:nth-child(even) td {
   padding: 0.33rem 0.65rem;
   border-radius: 999px;
   font-size: 0.78rem;
+  flex: 1;
+  min-width: 120px;
+  text-align: center;
 }
 
 .section-toggle-btn:hover {
@@ -750,6 +793,33 @@ tr:nth-child(even) td {
 .section-caption {
   font-size: 0.8rem;
   color: var(--text-dim);
+}
+
+/* Enhanced responsive section layouts */
+@media (max-width: 760px) {
+  .section-switcher {
+    gap: 0.3rem;
+  }
+  
+  .section-toggle-btn {
+    min-width: 100px;
+    padding: 0.28rem 0.55rem;
+    font-size: 0.75rem;
+  }
+  
+  .detail-card {
+    padding: 0.8rem;
+  }
+  
+  .section-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+  
+  .section-title-row h2 {
+    font-size: 1rem;
+  }
 }
 
 .summary-kpi-grid {
@@ -1084,6 +1154,8 @@ tr:nth-child(even) td {
 .machine-edit-grid input,
 .machine-edit-grid select {
   width: 100%;
+  max-width: 100%;
+  min-width: 200px;
 }
 
 .machine-edit-checkbox {
@@ -1100,6 +1172,35 @@ tr:nth-child(even) td {
 
 .machine-edit-actions a {
   font-weight: 700;
+}
+
+/* Enhanced responsive form layouts */
+@media (max-width: 940px) {
+  .machine-edit-grid {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .machine-edit-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .machine-edit-grid input,
+  .machine-edit-grid select {
+    min-width: 100%;
+  }
+  
+  .machine-edit-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+  
+  .machine-edit-actions a,
+  .machine-edit-actions button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 1160px) {
