@@ -583,6 +583,9 @@ def create_app():
         # Get work types from form
         work_types = request.form.getlist("work_types")
         other_descriptions = request.form.getlist("other_description")
+        
+        # Get work types payload (for copying from existing machines)
+        work_types_payload_raw = request.form.get("work_types_payload")
 
         if not machine_name:
             flash("Machine / Asset # cannot be empty.", "error")
@@ -614,29 +617,35 @@ def create_app():
             flash(product_line_error, "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        # Validate work types
-        parsed_work_types = []
-        for i, work_type in enumerate(work_types):
-            work_type = work_type.strip()
-            if not work_type:
-                continue
-                
-            if work_type not in WORK_TYPE_OPTIONS:
-                flash(f"Invalid work type: {work_type}", "error")
-                return redirect(url_for("project_detail", project_id=project.id) + "#machines")
-                
-            other_description = other_descriptions[i] if i < len(other_descriptions) else ""
-            if work_type == "Other" and not other_description.strip():
-                flash("Other work type requires a description.", "error")
-                return redirect(url_for("project_detail", project_id=project.id) + "#machines")
-                
-            parsed_work_types.append({
-                "work_type": work_type,
-                "other_description": other_description.strip() if other_description else None,
-                "label": format_work_type_label(work_type, other_description)
-            })
+        # Parse work types payload first (for copying)
+        parsed_work_types, work_types_error = parse_work_types_payload(work_types_payload_raw, require_one=False)
+        if work_types_error:
+            flash(work_types_error, "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        # If no work types provided, add a default "RA" work type
+        # If no work types from payload, try form fields
+        if not parsed_work_types:
+            for i, work_type in enumerate(work_types):
+                work_type = work_type.strip()
+                if not work_type:
+                    continue
+                    
+                if work_type not in WORK_TYPE_OPTIONS:
+                    flash(f"Invalid work type: {work_type}", "error")
+                    return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+                    
+                other_description = other_descriptions[i] if i < len(other_descriptions) else ""
+                if work_type == "Other" and not other_description.strip():
+                    flash("Other work type requires a description.", "error")
+                    return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+                    
+                parsed_work_types.append({
+                    "work_type": work_type,
+                    "other_description": other_description.strip() if other_description else None,
+                    "label": format_work_type_label(work_type, other_description)
+                })
+
+        # If still no work types, add a default "RA" work type
         if not parsed_work_types:
             parsed_work_types.append({
                 "work_type": "RA",

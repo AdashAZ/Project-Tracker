@@ -91,11 +91,27 @@
     </div>
   </section>
 
-  <div class="section-switcher">
-    <button type="button" class="section-toggle-btn is-active" data-target="machines">Machines</button>
-    <button type="button" class="section-toggle-btn is-active" data-target="time-entries">Time Entries</button>
-    <button type="button" class="section-toggle-btn is-active" data-target="comments">Comments</button>
-  </div>
+        <div class="section-switcher">
+            <button type="button" class="section-toggle-btn" data-target="machines">Machines</button>
+            <button type="button" class="section-toggle-btn" data-target="time-entries">Time Entries</button>
+            <button type="button" class="section-toggle-btn" data-target="comments">Comments</button>
+        </div>
+
+        <!-- Custom Modal Overlay -->
+        <div id="custom-modal-overlay" class="custom-modal-overlay">
+            <div class="custom-modal">
+                <div class="custom-modal-header">
+                    <div class="custom-modal-title" id="custom-modal-title">Confirm Action</div>
+                </div>
+                <div class="custom-modal-body" id="custom-modal-body">
+                    Are you sure you want to proceed?
+                </div>
+                <div class="custom-modal-actions">
+                    <button type="button" class="custom-modal-btn secondary" id="custom-modal-cancel">Cancel</button>
+                    <button type="button" class="custom-modal-btn danger" id="custom-modal-confirm">Confirm</button>
+                </div>
+            </div>
+        </div>
 
   <section id="project-edit" class="detail-card project-edit detail-section" style="display: none;">
     <div class="section-title-row">

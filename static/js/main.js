@@ -631,7 +631,7 @@ document.addEventListener("DOMContentLoaded", () => {
       productLineInput.name = "product_line_id";
       productLineInput.value = productLineId || "";
 
-      // Create hidden input for work types
+      // Create hidden input for work types payload
       const workTypesInput = document.createElement("input");
       workTypesInput.type = "hidden";
       workTypesInput.name = "work_types_payload";
@@ -708,7 +708,7 @@ document.addEventListener("DOMContentLoaded", () => {
       productLineInput.name = "product_line_id";
       productLineInput.value = productLineId || "";
 
-      // Create hidden input for work types
+      // Create hidden input for work types payload
       const workTypesInput = document.createElement("input");
       workTypesInput.type = "hidden";
       workTypesInput.name = "work_types_payload";
@@ -722,5 +722,64 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.appendChild(form);
       form.submit();
     });
+  });
+
+  // ---------------------------
+  // Custom modal functionality
+  // ---------------------------
+  const modalOverlay = document.getElementById('custom-modal-overlay');
+  const modalTitle = document.getElementById('custom-modal-title');
+  const modalBody = document.getElementById('custom-modal-body');
+  const modalCancel = document.getElementById('custom-modal-cancel');
+  const modalConfirm = document.getElementById('custom-modal-confirm');
+  let pendingForm = null;
+
+  function showModal(title, body, form) {
+    modalTitle.textContent = title;
+    modalBody.textContent = body;
+    pendingForm = form;
+    modalOverlay.classList.add('show');
+  }
+
+  function hideModal() {
+    modalOverlay.classList.remove('show');
+    pendingForm = null;
+  }
+
+  modalCancel.addEventListener('click', hideModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) hideModal();
+  });
+
+  modalConfirm.addEventListener('click', () => {
+    if (pendingForm) {
+      pendingForm.submit();
+    }
+    hideModal();
+  });
+
+  // Replace all confirm() calls with custom modal
+  document.querySelectorAll('form').forEach(form => {
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', (e) => {
+        const formAction = form.action || '';
+        const isDelete = formAction.includes('delete') || formAction.includes('Delete');
+        const isClear = formAction.includes('clear') || formAction.includes('Clear');
+        const isSetToday = formAction.includes('set_today') || formAction.includes('Set Today');
+        const isOverwrite = formAction.includes('overwrite') || formAction.includes('Overwrite');
+
+        if (isDelete) {
+          e.preventDefault();
+          showModal('Confirm Deletion', 'Are you sure you want to delete this item? This action cannot be undone.', form);
+        } else if (isClear) {
+          e.preventDefault();
+          showModal('Confirm Clear', 'Are you sure you want to clear this date?', form);
+        } else if (isSetToday || isOverwrite) {
+          e.preventDefault();
+          showModal('Confirm Update', 'This will overwrite the existing date with today. Continue?', form);
+        }
+      });
+    }
   });
 });
