@@ -1,0 +1,397 @@
+# Comprehensive Element Breakdown for Project Tracker Application
+
+Based on my analysis of your codebase, here's a detailed breakdown of all elements across each page, organized by page as requested:
+
+## 1. Base Template (`templates/base.html`)
+
+### HTML Structure Elements:
+- **`<html lang="en">`** - Root HTML element with language attribute
+- **`<head>`** - Document head containing metadata
+- **`<meta charset="UTF-8">`** - Character encoding declaration
+- **`<title>`** - Page title with Jinja2 block for dynamic content
+- **`<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">`** - CSS stylesheet link
+- **`<script src="{{ url_for('static', filename='js/main.js') }}" defer></script>`** - JavaScript file with defer attribute
+- **`<link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">`** - Favicon links
+- **`<body>`** - Main body container
+- **`<header>`** - Header section
+- **`<nav class="navbar">`** - Navigation bar
+- **`<div class="nav-left">`** - Left navigation section
+- **`<a href="{{ url_for('dashboard') }}">Dashboard</a>`** - Dashboard navigation link
+- **`<a href="{{ url_for('new_project') }}">New Project</a>`** - New Project navigation link
+- **`<a class="nav-logo-link" href="{{ url_for('dashboard') }}">`** - Logo link
+- **`<img class="nav-logo" src="{{ url_for('static', filename='favicon-32x32.png') }}" alt="Project Tracker">`** - Logo image
+- **`<main class="container">`** - Main content container
+- **`<div class="flash-messages">`** - Flash message container
+- **`<div class="flash flash-{{ category }}">`** - Individual flash message with category classes
+
+### CSS Classes:
+- **`.navbar`** - Main navigation bar styling
+- **`.nav-left`** - Left-aligned navigation items
+- **`.nav-logo-link`** - Logo link styling
+- **`.nav-logo`** - Logo image styling
+- **`.container`** - Main content container
+- **`.flash-messages`** - Flash message wrapper
+- **`.flash`** - Base flash message styling
+- **`.flash-success`** - Success message styling
+- **`.flash-error`** - Error message styling
+
+### JavaScript Selectors:
+- No specific JavaScript selectors in base template
+
+---
+
+## 2. Dashboard Page (`templates/dashboard.html`)
+
+### HTML Structure Elements:
+- **`<h1>Project Tracking</h1>`** - Main page heading
+- **`<div class="filters dashboard-controls">`** - Filter controls container
+- **`<form method="get" action="{{ url_for('dashboard') }}">`** - Status filter form
+- **`<select id="status-filter" name="status">`** - Status filter dropdown
+- **`<div class="dashboard-search-wrap">`** - Search input wrapper
+- **`<input type="text" id="dashboard-search" placeholder="Type customer, location, machine, or project ref (3+ chars)">`** - Search input
+- **`<div id="dashboard-search-preview" class="dashboard-search-preview" hidden>`** - Search results preview
+- **`<div id="dashboard-no-matches" class="dashboard-no-matches" hidden>`** - No matches message
+- **`<table id="projects-table">`** - Main projects table
+- **`<thead>`** - Table header section
+- **`<tbody>`** - Table body section
+- **`<tr class="status-{{ project.status|lower|replace('/', '-')|replace(' ', '-') }}" data-href="{{ url_for('project_detail', project_id=project.id) }}">`** - Project rows with data attributes
+- **`<td>`** - Table data cells for each project attribute
+
+### CSS Classes:
+- **`.filters`** - Filter section styling
+- **`.dashboard-controls`** - Dashboard control elements
+- **`#status-filter`** - Status filter dropdown
+- **`.dashboard-search-wrap`** - Search input wrapper
+- **`#dashboard-search`** - Search input field
+- **`.dashboard-search-preview`** - Search results dropdown
+- **`#dashboard-search-preview`** - Search preview container
+- **`.dashboard-no-matches`** - No results message
+- **`#dashboard-no-matches`** - No matches container
+- **`#projects-table`** - Main projects table
+- **`.status-n-s`** - Not Started status styling
+- **`.status-wip`** - Work In Progress status styling
+- **`.status-stopped`** - Stopped status styling
+- **`.status-in-review`** - In Review status styling
+- **`.status-completed`** - Completed status styling
+- **`.overdue`** - Overdue date styling
+- **`.status-cell`** - Status cell styling
+- **`.dash-progress-wrap`** - Progress bar wrapper
+- **`.dash-progress-track`** - Progress bar track
+- **`.dash-progress-fill`** - Progress bar fill
+- **`.dash-progress-red`** - Red progress styling
+- **`.dash-progress-amber`** - Amber progress styling
+- **`.dash-progress-yellow`** - Yellow progress styling
+- **`.dash-progress-green`** - Green progress styling
+- **`.dash-progress-text`** - Progress text styling
+
+### JavaScript Selectors:
+- **`#dashboard-search`** - Search input field
+- **`#dashboard-search-preview`** - Search results container
+- **`#dashboard-no-matches`** - No matches message
+- **`#projects-table`** - Main projects table
+- **`[data-href]`** - Rows with clickable links
+- **`[data-customer]`** - Customer data attribute
+- **`[data-location]`** - Location data attribute
+- **`[data-project]`** - Project reference data attribute
+- **`[data-status]`** - Status data attribute
+- **`[data-due]`** - Due date data attribute
+- **`[data-machines]`** - Machine names data attribute
+- **`[data-machine-list]`** - Machine list data attribute
+
+---
+
+## 3. Project Details Page (`templates/project_detail.html`)
+
+### HTML Structure Elements:
+- **`<div class="project-detail-page">`** - Main page container
+- **`<section class="project-hero">`** - Project header/hero section
+- **`<div class="hero-main">`** - Main hero content
+- **`<div class="hero-kicker">Project Details</div>`** - Hero label
+- **`<dl id="project-summary" class="hero-info-list detail-section">`** - Project summary definition list
+- **`<div>`** - Individual summary items
+- **`<dt>`** - Definition terms (labels)
+- **`<dd>`** - Definition descriptions (values)
+- **`<div class="hero-health">`** - Project health/status section
+- **`<div class="hero-health-label">Project % Used</div>`** - Health label
+- **`<div class="usage-progress-wrap usage-progress-wrap-lg">`** - Usage progress wrapper
+- **`<div class="usage-progress-track">`** - Usage progress track
+- **`<div class="usage-progress-fill" style="width: {{ "%.1f"|format(usage_pct_capped) }}%">`** - Usage progress fill
+- **`<span class="usage-progress-text">{{ "%.1f"|format(project.percent_used) }}%</span>`** - Usage percentage text
+- **`<div class="hero-health-grid">`** - Health metrics grid
+- **`<div class="hero-health-item">`** - Individual health metric
+- **`<div class="hero-actions">`** - Hero action buttons
+- **`<button type="button" id="toggle-edit-btn" class="btn-secondary">Edit Project</button>`** - Edit button
+- **`<form method="post" action="{{ url_for('delete_project', project_id=project.id) }}">`** - Delete form
+- **`<div class="section-switcher">`** - Section navigation buttons
+- **`<button type="button" class="section-toggle-btn is-active" data-target="machines">Machines</button>`** - Machines section button
+- **`<button type="button" class="section-toggle-btn is-active" data-target="time-entries">Time Entries</button>`** - Time entries section button
+- **`<button type="button" class="section-toggle-btn is-active" data-target="comments">Comments</button>`** - Comments section button
+- **`<section id="project-edit" class="detail-card project-edit detail-section" style="display: none;">`** - Edit form section
+- **`<div class="section-title-row">`** - Section title wrapper
+- **`<h2>Edit Project</h2>`** - Section title
+- **`<span class="section-caption">Update project profile and total quoted hours</span>`** - Section description
+- **`<form method="post" action="{{ url_for('update_project', project_id=project.id) }}">`** - Edit form
+- **`<section id="machines" class="detail-card machines detail-section">`** - Machines section
+- **`<form method="post" action="{{ url_for('add_machine', project_id=project.id) }}">`** - Add machine form
+- **`<div class="form-inline">`** - Inline form layout
+- **`<table>`** - Machines table
+- **`<thead>`** - Table header
+- **`<tbody>`** - Table body
+- **`<tr class="machine-status-{{ machine.status|lower|replace('/', '-')|replace(' ', '-') }}">`** - Machine rows
+- **`<td class="machine-col-status">`** - Status column
+- **`<td class="machine-col-tracked">`** - Tracked hours column
+- **`<td class="machine-col-worktype-hours">`** - Work type hours column
+- **`<div class="v2-button-container">`** - V2.0/V3.0 button container
+- **`<button type="button" class="btn-mini btn-v2-add" data-machine-id="{{ machine.id }}">Add V2.0</button>`** - V2.0 button
+- **`<button type="button" class="btn-mini btn-v3-add" data-machine-id="{{ machine.id }}">Add V3.0</button>`** - V3.0 button
+- **`<tr class="edit-row">`** - Edit row for machines
+- **`<section id="time-entries" class="detail-card time-entries detail-section">`** - Time entries section
+- **`<form method="post" action="{{ url_for('add_time_entry', project_id=project.id) }}">`** - Add time entry form
+- **`<table id="time-entries-table">`** - Time entries table
+- **`<th class="sortable" data-sort="date">Date</th>`** - Sortable table headers
+- **`<tr data-entry-id="{{ entry.id }}">`** - Time entry rows
+- **`<section id="comments" class="detail-card comments detail-section">`** - Comments section
+- **`<form method="post" action="{{ url_for('add_comment', project_id=project.id) }}">`** - Add comment form
+- **`<table>`** - Comments table
+- **`<script id="machine-work-types-map" type="application/json">{{ machine_work_type_choices | tojson }}</script>`** - Machine work types data
+- **`<script id="default-work-type-options" type="application/json">{{ work_type_options | tojson }}</script>`** - Work type options data
+- **`<template id="machine-work-type-row-template">`** - Machine work type template
+
+### CSS Classes:
+- **`.project-detail-page`** - Main page container
+- **`.project-hero`** - Project hero/header section
+- **`.hero-main`** - Main hero content area
+- **`.hero-kicker`** - Hero label/kicker
+- **`#project-summary`** - Project summary container
+- **`.hero-info-list`** - Hero information list
+- **`.detail-section`** - Detail section styling
+- **`.hero-health`** - Project health section
+- **`.hero-health-label`** - Health label
+- **`.usage-progress-wrap`** - Usage progress wrapper
+- **`.usage-progress-wrap-lg`** - Large usage progress wrapper
+- **`.usage-progress-track`** - Usage progress track
+- **`.usage-progress-fill`** - Usage progress fill
+- **`.usage-progress-text`** - Usage progress text
+- **`.hero-health-grid`** - Health metrics grid
+- **`.hero-health-item`** - Individual health metric item
+- **`.hero-actions`** - Hero action buttons container
+- **`#toggle-edit-btn`** - Edit button
+- **`.btn-secondary`** - Secondary button styling
+- **`.section-switcher`** - Section navigation container
+- **`.section-toggle-btn`** - Section toggle buttons
+- **`.is-active`** - Active section state
+- **`#project-edit`** - Edit form section
+- **`.detail-card`** - Detail card styling
+- **`.project-edit`** - Project edit section
+- **`.section-title-row`** - Section title wrapper
+- **`.section-caption`** - Section description
+- **`#machines`** - Machines section
+- **`.machines`** - Machines section styling
+- **`.form-inline`** - Inline form layout
+- **`.machine-status-n-s`** - Machine Not Started status
+- **`.machine-status-wip`** - Machine Work In Progress status
+- **`.machine-status-stopped`** - Machine Stopped status
+- **`.machine-status-in-review`** - Machine In Review status
+- **`.machine-status-completed`** - Machine Completed status
+- **`.machine-complete-row`** - Completed machine row styling
+- **`.machine-col-status`** - Status column styling
+- **`.machine-col-tracked`** - Tracked hours column styling
+- **`.machine-col-worktype-hours`** - Work type hours column styling
+- **`.machine-hours-cell`** - Machine hours cell
+- **`.machine-hours-meta`** - Machine hours metadata
+- **`.machine-hours-value`** - Machine hours value
+- **`.machine-hours-quote`** - Machine hours quote
+- **`.machine-hours-track`** - Machine hours track
+- **`.machine-hours-fill`** - Machine hours fill
+- **`.v2-button-container`** - V2.0/V3.0 button container
+- **`.btn-v2-add`** - V2.0 button styling
+- **`.btn-v3-add`** - V3.0 button styling
+- **`.edit-row`** - Edit row styling
+- **`#time-entries`** - Time entries section
+- **`.time-entries`** - Time entries section styling
+- **`#time-entries-table`** - Time entries table
+- **`.sortable`** - Sortable table header
+- **`.sort-asc`** - Ascending sort indicator
+- **`.sort-desc`** - Descending sort indicator
+- **`#comments`** - Comments section
+- **`.comments`** - Comments section styling
+- **`.machine-work-types-editor`** - Machine work types editor
+- **`.machine-work-types-header`** - Work types header
+- **`.machine-work-types-list`** - Work types list
+- **`.machine-work-type-row`** - Individual work type row
+- **`.machine-work-type-select`** - Work type select dropdown
+- **`.machine-work-type-other`** - Other work type input
+- **`.milestone-cell`** - Milestone cell
+- **`.milestone-done`** - Completed milestone styling
+- **`.milestone-date`** - Milestone date
+- **`.milestone-actions`** - Milestone actions
+- **`.btn-mini`** - Mini button styling
+- **`.row-actions`** - Row actions styling
+
+### JavaScript Selectors:
+- **`#project-summary`** - Project summary container
+- **`#toggle-edit-btn`** - Edit button
+- **`.section-toggle-btn`** - Section toggle buttons
+- **`[data-target]`** - Section target attribute
+- **`#project-edit`** - Edit form section
+- **`#machines`** - Machines section
+- **`#time-entries`** - Time entries section
+- **`#time-entries-table`** - Time entries table
+- **`.sortable`** - Sortable table headers
+- **`[data-sort]`** - Sort data attribute
+- **`[data-entry-id]`** - Entry ID data attribute
+- **`[data-date]`** - Date data attribute
+- **`[data-machine]`** - Machine data attribute
+- **`[data-work-type]`** - Work type data attribute
+- **`[data-hours]`** - Hours data attribute
+- **`[data-notes]`** - Notes data attribute
+- **`#comments`** - Comments section
+- **`[data-machine-id]`** - Machine ID for V2.0/V3.0 buttons
+- **`[data-machine-work-types-editor]`** - Machine work types editor
+- **`[data-machine-work-type-add]`** - Add work type button
+- **`[data-machine-work-types-list]`** - Work types list
+- **`[data-work-type-row]`** - Work type row
+- **`[data-machine-select-id]`** - Machine select ID attribute
+- **`[data-current-value]`** - Current value attribute
+- **`#machine-work-types-map`** - Machine work types data script
+- **`#default-work-type-options`** - Default work type options data script
+- **`#machine-work-type-row-template`** - Work type row template
+
+---
+
+## 4. Project Form Page (`templates/project_form.html`)
+
+### HTML Structure Elements:
+- **`<h1>New Project</h1>`** - Page heading
+- **`<form method="post" id="new-project-form">`** - Main project form
+- **`<input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">`** - CSRF token
+- **`<div class="form-group">`** - Form group wrapper
+- **`<label for="customer">Customer *</label>`** - Customer label
+- **`<input type="text" id="customer" name="customer" required />`** - Customer input
+- **`<input type="text" id="location" name="location" />`** - Location input
+- **`<input type="text" id="na_number" name="na_number" />`** - NA number input
+- **`<input type="text" id="edb_number" name="edb_number" />`** - EDB number input
+- **`<input type="date" id="due_date" name="due_date" />`** - Due date input
+- **`<input type="number" step="0.1" id="quoted_hours_total" name="quoted_hours_total" value="0" />`** - Quoted hours input
+- **`<input type="hidden" id="product_lines_payload" name="product_lines_payload" value="[]">`** - Product lines payload
+- **`<div id="product-line-builder-list" class="product-line-builder-list">`** - Product line builder list
+- **`<div class="product-line-builder-item" data-product-line-item>`** - Individual product line item
+- **`<div class="product-line-builder-top">`** - Product line top section
+- **`<label>Product / Line *</label>`** - Product line label
+- **`<button type="button" class="btn-mini product-line-remove-btn" data-remove-product-line>Remove</button>`** - Remove product line button
+- **`<input type="text" class="product-line-name-input" placeholder="e.g. Auto Bottle Cutter Line">`** - Product line name input
+- **`<div class="machine-builder-list" data-machine-builder-list>`** - Machine builder list
+- **`<div class="machine-builder-item" data-machine-item>`** - Individual machine item
+- **`<div class="machine-builder-top">`** - Machine top section
+- **`<label>Machine / Asset #s</label>`** - Machine label
+- **`<button type="button" class="btn-mini machine-remove-btn" data-remove-machine>Remove</button>`** - Remove machine button
+- **`<input type="text" class="machine-name-input" placeholder="e.g. Conv 1 - Filler">`** - Machine name input
+- **`<div class="machine-work-types" data-work-types-container>`** - Machine work types container
+- **`<div class="machine-work-type-row" data-work-type-row>`** - Individual work type row
+- **`<label>Work Type *</label>`** - Work type label
+- **`<select class="machine-work-type-select">`** - Work type select
+- **`<input type="text" class="machine-work-type-other" placeholder="Describe other work" style="display: none;">`** - Other work type input
+- **`<button type="button" class="btn-mini" data-add-work-type>Add Work Type</button>`** - Add work type button
+- **`<button type="button" class="add-machine-btn" data-add-machine-row-btn>Add Machine</button>`** - Add machine button
+- **`<button type="button" id="add-product-line-btn" class="add-product-line-btn">Add Product / Line</button>`** - Add product line button
+- **`<button type="submit">Create Project</button>`** - Submit button
+- **`<template id="product-line-builder-template">`** - Product line template
+- **`<template id="machine-builder-template">`** - Machine template
+- **`<template id="machine-work-type-template">`** - Work type template
+
+### CSS Classes:
+- **`#new-project-form`** - Main project form
+- **`.form-group`** - Form group styling
+- **`#customer`** - Customer input
+- **`#location`** - Location input
+- **`#na_number`** - NA number input
+- **`#edb_number`** - EDB number input
+- **`#due_date`** - Due date input
+- **`#quoted_hours_total`** - Quoted hours input
+- **`#product_lines_payload`** - Product lines payload
+- **`#product-line-builder-list`** - Product line builder list
+- **`.product-line-builder-list`** - Product line builder list styling
+- **`.product-line-builder-item`** - Individual product line item
+- **`[data-product-line-item]`** - Product line item data attribute
+- **`.product-line-builder-top`** - Product line top section
+- **`.product-line-remove-btn`** - Remove product line button
+- **`[data-remove-product-line]`** - Remove product line data attribute
+- **`.product-line-name-input`** - Product line name input
+- **`.machine-builder-list`** - Machine builder list
+- **`[data-machine-builder-list]`** - Machine builder list data attribute
+- **`.machine-builder-item`** - Individual machine item
+- **`[data-machine-item]`** - Machine item data attribute
+- **`.machine-builder-top`** - Machine top section
+- **`.machine-remove-btn`** - Remove machine button
+- **`[data-remove-machine]`** - Remove machine data attribute
+- **`.machine-name-input`** - Machine name input
+- **`.machine-work-types`** - Machine work types container
+- **`[data-work-types-container]`** - Work types container data attribute
+- **`.machine-work-type-row`** - Individual work type row
+- **`[data-work-type-row]`** - Work type row data attribute
+- **`.machine-work-type-select`** - Work type select dropdown
+- **`.machine-work-type-other`** - Other work type input
+- **`[data-add-work-type]`** - Add work type data attribute
+- **`.add-machine-btn`** - Add machine button
+- **`[data-add-machine-row-btn]`** - Add machine button data attribute
+- **`#add-product-line-btn`** - Add product line button
+- **`.add-product-line-btn`** - Add product line button styling
+- **`#product-line-builder-template`** - Product line template
+- **`#machine-builder-template`** - Machine template
+- **`#machine-work-type-template`** - Work type template
+
+### JavaScript Selectors:
+- **`#new-project-form`** - Main project form
+- **`#customer`** - Customer input
+- **`#location`** - Location input
+- **`#na_number`** - NA number input
+- **`#edb_number`** - EDB number input
+- **`#due_date`** - Due date input
+- **`#quoted_hours_total`** - Quoted hours input
+- **`#product_lines_payload`** - Product lines payload
+- **`#product-line-builder-list`** - Product line builder list
+- **`[data-product-line-item]`** - Product line item data attribute
+- **`[data-remove-product-line]`** - Remove product line data attribute
+- **`.product-line-name-input`** - Product line name input
+- **`[data-machine-builder-list]`** - Machine builder list data attribute
+- **`[data-machine-item]`** - Machine item data attribute
+- **`[data-remove-machine]`** - Remove machine data attribute
+- **`.machine-name-input`** - Machine name input
+- **`[data-work-types-container]`** - Work types container data attribute
+- **`[data-work-type-row]`** - Work type row data attribute
+- **`.machine-work-type-select`** - Work type select dropdown
+- **`.machine-work-type-other`** - Other work type input
+- **`[data-add-work-type]`** - Add work type data attribute
+- **`[data-add-machine-row-btn]`** - Add machine button data attribute
+- **`#add-product-line-btn`** - Add product line button
+- **`#product-line-builder-template`** - Product line template
+- **`#machine-builder-template`** - Machine template
+- **`#machine-work-type-template`** - Work type template
+
+---
+
+## 5. CSS Styles (`static/css/styles.css`)
+
+### CSS Classes and IDs:
+The CSS file contains extensive styling for all the elements mentioned above, including:
+- **Layout and grid systems** (`.container`, `.project-hero`, `.hero-main`, etc.)
+- **Typography and text styling** (headings, labels, text colors)
+- **Form styling** (inputs, selects, buttons, form layouts)
+- **Table styling** (tables, headers, rows, cells, responsive tables)
+- **Navigation styling** (navbar, section switchers, buttons)
+- **Progress indicators** (progress bars, usage tracking, dashboards)
+- **Status indicators** (status pills, color coding, state styling)
+- **Responsive design** (media queries, flexible layouts, mobile optimization)
+- **Interactive elements** (hover states, focus states, active states)
+- **Utility classes** (spacing, positioning, visibility)
+
+### Key CSS Features:
+- **CSS Custom Properties (Variables)** - Extensive use of CSS variables for theming
+- **Responsive Design** - Multiple breakpoints for different screen sizes
+- **Flexbox and Grid Layouts** - Modern CSS layout techniques
+- **Gradient Backgrounds** - Sophisticated background styling
+- **Box Shadows and Borders** - Visual depth and separation
+- **Transitions and Animations** - Smooth user interactions
+- **Accessibility Features** - Focus indicators, color contrast, semantic structure
+
+This comprehensive breakdown covers all the HTML elements, CSS classes, and JavaScript selectors used throughout your Project Tracker application, organized by page as requested.
