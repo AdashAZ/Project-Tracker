@@ -951,7 +951,8 @@ tr:nth-child(even) td {
 }
 
 .machine-col-worktype-hours {
-  min-width: 220px;
+  min-width: 180px;
+  width: 180px;
 }
 
 .machine-worktype-hours-list {
