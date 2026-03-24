@@ -64,7 +64,13 @@
       </div>
 
       <div class="hero-actions">
-        <button type="button" id="toggle-edit-btn" class="btn-secondary">Edit Project</button>
+        <button type="button" id="toggle-edit-btn" class="btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          Project
+        </button>
 
         <form
           method="post"
@@ -72,7 +78,14 @@
           onsubmit="return confirm('Are you sure you want to delete this project and all related data?');"
         >
           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <button type="submit" class="btn-danger">Delete Project</button>
+          <button type="submit" class="btn-danger">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18"></path>
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            </svg>
+            Project
+          </button>
         </form>
       </div>
     </div>
