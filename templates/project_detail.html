@@ -179,6 +179,20 @@
         <label for="new_product_line">Or Create New Product / Line</label>
         <input type="text" id="new_product_line" name="new_product_line" placeholder="New product/line name">
 
+        <label for="work_types">Work Types</label>
+        <div class="machine-work-types-add" id="machine-work-types-add">
+          <div class="machine-work-type-row" data-work-type-row>
+            <select class="machine-work-type-select" name="work_types">
+              <option value="">-- Select --</option>
+              {% for option in work_type_options %}
+              <option value="{{ option }}">{{ option }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" class="machine-work-type-other" name="other_description" placeholder="Describe other work" style="display: none;">
+          </div>
+          <button type="button" class="btn-mini" id="add-work-type-btn">Add Work Type</button>
+        </div>
+
         <button type="submit">Add Machine</button>
       </div>
     </form>
@@ -698,6 +712,53 @@ document.addEventListener('DOMContentLoaded', function() {
       // Re-append rows in sorted order
       rows.forEach(row => tbody.appendChild(row));
     }
+  }
+
+  // Work type selection functionality for adding machines
+  const addWorkTypeBtn = document.getElementById('add-work-type-btn');
+  const workTypesContainer = document.getElementById('machine-work-types-add');
+  const template = document.getElementById('machine-work-types-template');
+
+  if (addWorkTypeBtn && workTypesContainer) {
+    addWorkTypeBtn.addEventListener('click', () => {
+      const newRow = document.createElement('div');
+      newRow.className = 'machine-work-type-row';
+      newRow.innerHTML = `
+        <select class="machine-work-type-select" name="work_types">
+          <option value="">-- Select --</option>
+          {% for option in work_type_options %}
+          <option value="{{ option }}">{{ option }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" class="machine-work-type-other" name="other_description" placeholder="Describe other work" style="display: none;">
+      `;
+      
+      // Insert before the button
+      workTypesContainer.insertBefore(newRow, addWorkTypeBtn);
+      
+      // Add event listener to the new select
+      const select = newRow.querySelector('.machine-work-type-select');
+      select.addEventListener('change', function() {
+        const otherInput = newRow.querySelector('.machine-work-type-other');
+        if (this.value === 'Other') {
+          otherInput.style.display = 'block';
+        } else {
+          otherInput.style.display = 'none';
+        }
+      });
+    });
+
+    // Add event listeners to existing work type selects
+    workTypesContainer.querySelectorAll('.machine-work-type-select').forEach(select => {
+      select.addEventListener('change', function() {
+        const otherInput = this.parentElement.querySelector('.machine-work-type-other');
+        if (this.value === 'Other') {
+          otherInput.style.display = 'block';
+        } else {
+          otherInput.style.display = 'none';
+        }
+      });
+    });
   }
 });
 </script>
