@@ -1562,7 +1562,7 @@ tr:nth-child(even) td {
 
 .usage-progress-fill,
 .machine-hours-fill {
-  background: linear-gradient(90deg, #3d7cac, #78a7cf);
+  background: linear-gradient(90deg, #ffb74d, #ffa000);
 }
 
 .summary-panel,
