@@ -3,6 +3,8 @@
 {% block title %}Admin Panel - Project Tracker{% endblock %}
 
 {% block content %}
+<input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
 <div class="admin-dashboard">
     <div class="admin-header">
         <div class="header-content">
@@ -294,11 +296,21 @@ document.addEventListener('DOMContentLoaded', function() {
     let pendingData = null;
 
     function showModal(title, body, action, data) {
+        console.log('showModal called with:', { title, body, action, data });
+        console.log('Modal overlay element:', modalOverlay);
+        console.log('Modal overlay classList before:', modalOverlay.classList);
+        
         modalTitle.textContent = title;
         modalBody.textContent = body;
         pendingAction = action;
         pendingData = data;
+        
+        // Force the modal to show
+        modalOverlay.style.display = 'flex';
         modalOverlay.classList.add('show');
+        
+        console.log('Modal overlay classList after:', modalOverlay.classList);
+        console.log('Modal overlay display style:', modalOverlay.style.display);
     }
 
     function hideModal() {
@@ -332,106 +344,159 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === modalOverlay) hideModal();
     });
 
-    modalConfirm.addEventListener('click', async () => {
-        if (!pendingAction) return;
-        
-        hideModal();
-        
-        try {
-            if (pendingAction === 'backup') {
-                showProgress('Creating Backup', 'Please wait while we create a backup of your database...');
-                updateProgress(10, 'Initializing backup process...');
-                
-                const response = await fetch('/admin/backup', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
-                    }
-                });
-                
-                updateProgress(50, 'Copying database file...');
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateProgress(100, 'Backup completed successfully!');
-                    setTimeout(() => {
-                        hideProgress();
-                        showSuccessMessage('Backup created successfully: ' + result.filename);
-                        location.reload();
-                    }, 1000);
-                } else {
-                    throw new Error(result.message);
-                }
-            } else if (pendingAction === 'restore') {
-                showProgress('Restoring Database', 'Please wait while we restore your database...');
-                updateProgress(10, 'Creating backup of current database...');
-                
-                const response = await fetch('/admin/restore', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
-                    },
-                    body: JSON.stringify({ filename: pendingData })
-                });
-                
-                updateProgress(50, 'Restoring from backup file...');
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateProgress(100, 'Database restored successfully!');
-                    setTimeout(() => {
-                        hideProgress();
-                        showSuccessMessage('Database restored successfully from: ' + pendingData);
-                        location.reload();
-                    }, 1000);
-                } else {
-                    throw new Error(result.message);
-                }
-            } else if (pendingAction === 'export') {
-                showProgress('Exporting Data', 'Please wait while we export your data to CSV...');
-                updateProgress(10, 'Gathering data from all tables...');
-                
-                const response = await fetch('/admin/export', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
-                    }
-                });
-                
-                updateProgress(50, 'Creating CSV files...');
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateProgress(100, 'Export completed successfully!');
-                    setTimeout(() => {
-                        hideProgress();
-                        showSuccessMessage('Data exported successfully: ' + result.filename);
-                        location.reload();
-                    }, 1000);
-                } else {
-                    throw new Error(result.message);
-                }
+    // Ensure modal buttons work even if main.js has conflicting handlers
+    const cancelBtn = document.getElementById('admin-modal-cancel');
+    const confirmBtn = document.getElementById('admin-modal-confirm');
+    
+    console.log('Modal buttons found:', { cancelBtn, confirmBtn });
+    
+    if (cancelBtn) {
+        cancelBtn.onclick = null; // Remove any existing handlers
+        cancelBtn.addEventListener('click', () => {
+            console.log('Cancel button clicked');
+            hideModal();
+        });
+        console.log('Cancel button event listener attached');
+    }
+    
+    if (confirmBtn) {
+        confirmBtn.onclick = null; // Remove any existing handlers
+        confirmBtn.addEventListener('click', async (event) => {
+            console.log('Confirm button clicked');
+            console.log('Pending action:', pendingAction);
+            
+            // Stop event propagation to prevent other handlers from interfering
+            event.stopPropagation();
+            event.preventDefault();
+            
+            if (!pendingAction) {
+                console.log('No pending action, returning');
+                return;
             }
-        } catch (error) {
-            hideProgress();
-            showErrorMessage('Error: ' + error.message);
-        }
-    });
+            
+            // Store the action before hiding modal to prevent race conditions
+            const actionToExecute = pendingAction;
+            const dataToUse = pendingData;
+            
+            // Hide modal immediately to prevent further clicks
+            hideModal();
+            
+            try {
+                if (actionToExecute === 'backup') {
+                    console.log('Starting backup process');
+                    showProgress('Creating Backup', 'Please wait while we create a backup of your database...');
+                    updateProgress(10, 'Initializing backup process...');
+                    
+                    const response = await fetch('/admin/backup', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                        }
+                    });
+                    
+                    updateProgress(50, 'Copying database file...');
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        updateProgress(100, 'Backup completed successfully!');
+                        setTimeout(() => {
+                            hideProgress();
+                            showSuccessMessage('Backup created successfully: ' + result.filename);
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } else if (actionToExecute === 'restore') {
+                    console.log('Starting restore process');
+                    showProgress('Restoring Database', 'Please wait while we restore your database...');
+                    updateProgress(10, 'Creating backup of current database...');
+                    
+                    const response = await fetch('/admin/restore', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                        },
+                        body: JSON.stringify({ filename: dataToUse })
+                    });
+                    
+                    updateProgress(50, 'Restoring from backup file...');
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        updateProgress(100, 'Database restored successfully!');
+                        setTimeout(() => {
+                            hideProgress();
+                            showSuccessMessage('Database restored successfully from: ' + dataToUse);
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } else if (actionToExecute === 'export') {
+                    console.log('Starting export process');
+                    showProgress('Exporting Data', 'Please wait while we export your data to CSV...');
+                    updateProgress(10, 'Gathering data from all tables...');
+                    
+                    const response = await fetch('/admin/export', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                        }
+                    });
+                    
+                    updateProgress(50, 'Creating CSV files...');
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        updateProgress(100, 'Export completed successfully!');
+                        setTimeout(() => {
+                            hideProgress();
+                            showSuccessMessage('Data exported successfully: ' + result.filename);
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        throw new Error(result.message);
+                    }
+                }
+            } catch (error) {
+                console.error('Error in modal action:', error);
+                hideProgress();
+                showErrorMessage('Error: ' + error.message);
+            }
+        });
+        console.log('Confirm button event listener attached');
+    }
+
 
     progressClose.addEventListener('click', hideProgress);
 
+    // Debug: Check if buttons exist
+    console.log('Backup button:', backupBtn);
+    console.log('Export button:', exportBtn);
+    console.log('Backup empty button:', document.getElementById('backup-btn-empty'));
+    console.log('Export empty button:', document.getElementById('export-btn-empty'));
+    console.log('CSRF token:', document.querySelector('input[name="_csrf_token"]'));
+
     backupBtn.addEventListener('click', () => {
-        showModal(
-            'Create Database Backup',
-            'This will create a backup of your entire database. Continue?',
-            'backup'
-        );
+        console.log('Backup button clicked');
+        try {
+            showModal(
+                'Create Database Backup',
+                'This will create a backup of your entire database. Continue?',
+                'backup'
+            );
+        } catch (error) {
+            console.error('Error showing modal:', error);
+            alert('Error: ' + error.message);
+        }
     });
 
     exportBtn.addEventListener('click', () => {
+        console.log('Export button clicked');
         showModal(
             'Export Data to CSV',
             'This will export all your data to CSV files. Continue?',
@@ -440,21 +505,30 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Empty state buttons
-    document.getElementById('backup-btn-empty')?.addEventListener('click', () => {
-        showModal(
-            'Create Database Backup',
-            'This will create a backup of your entire database. Continue?',
-            'backup'
-        );
-    });
-
-    document.getElementById('export-btn-empty')?.addEventListener('click', () => {
-        showModal(
-            'Export Data to CSV',
-            'This will export all your data to CSV files. Continue?',
-            'export'
-        );
-    });
+    const backupEmptyBtn = document.getElementById('backup-btn-empty');
+    const exportEmptyBtn = document.getElementById('export-btn-empty');
+    
+    if (backupEmptyBtn) {
+        backupEmptyBtn.addEventListener('click', () => {
+            console.log('Backup empty button clicked');
+            showModal(
+                'Create Database Backup',
+                'This will create a backup of your entire database. Continue?',
+                'backup'
+            );
+        });
+    }
+    
+    if (exportEmptyBtn) {
+        exportEmptyBtn.addEventListener('click', () => {
+            console.log('Export empty button clicked');
+            showModal(
+                'Export Data to CSV',
+                'This will export all your data to CSV files. Continue?',
+                'export'
+            );
+        });
+    }
 
     // Restore buttons
     document.querySelectorAll('.btn-restore').forEach(btn => {

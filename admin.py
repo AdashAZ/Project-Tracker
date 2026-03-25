@@ -6,7 +6,26 @@ import json
 import logging
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, send_file
+from flask_wtf.csrf import validate_csrf
+from werkzeug.exceptions import BadRequest
+from functools import wraps
 from models import db, Project, Machine, TimeEntry, Comment, ProductLine, WorkType, MilestoneDefinition
+
+def csrf_exempt(f):
+    """Decorator to exempt a route from CSRF protection"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Skip CSRF validation for JSON API endpoints
+        content_type = request.headers.get('Content-Type', '')
+        if 'application/json' in content_type:
+            return f(*args, **kwargs)
+        # For non-JSON requests, validate CSRF as normal
+        try:
+            validate_csrf(request.headers.get('X-CSRFToken'))
+        except BadRequest:
+            return jsonify({'success': False, 'message': 'CSRF token missing or invalid'}), 400
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Configure logging
 logging.basicConfig(
@@ -234,6 +253,7 @@ def admin_dashboard():
                          export_files=export_files)
 
 @admin_bp.route('/backup', methods=['POST'])
+@csrf_exempt
 def create_backup():
     """Create a database backup"""
     try:
@@ -250,6 +270,7 @@ def create_backup():
         }), 500
 
 @admin_bp.route('/restore', methods=['POST'])
+@csrf_exempt
 def restore_backup():
     """Restore database from backup"""
     try:
@@ -272,6 +293,7 @@ def restore_backup():
         }), 500
 
 @admin_bp.route('/export', methods=['POST'])
+@csrf_exempt
 def export_data():
     """Export data to CSV"""
     try:
@@ -300,6 +322,7 @@ def download_file(filename):
         return jsonify({'success': False, 'message': f'Error downloading file: {str(e)}'}), 500
 
 @admin_bp.route('/delete_backup/<filename>', methods=['POST'])
+@csrf_exempt
 def delete_backup(filename):
     """Delete a backup file"""
     try:
@@ -322,6 +345,7 @@ def delete_backup(filename):
         }), 500
 
 @admin_bp.route('/delete_export/<filename>', methods=['POST'])
+@csrf_exempt
 def delete_export(filename):
     """Delete an export file"""
     try:

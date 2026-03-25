@@ -316,6 +316,10 @@ def create_app():
     @app.before_request
     def verify_csrf():
         if request.method == "POST":
+            # Skip CSRF verification for admin API endpoints with JSON data
+            if request.path.startswith('/admin/') and request.is_json:
+                return None
+                
             expected = session.get("_csrf_token")
             received = request.form.get("_csrf_token")
             if not expected or expected != received:

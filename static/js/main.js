@@ -755,52 +755,55 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalConfirm = document.getElementById('custom-modal-confirm');
   let pendingForm = null;
 
-  function showModal(title, body, form) {
-    modalTitle.textContent = title;
-    modalBody.textContent = body;
-    pendingForm = form;
-    modalOverlay.classList.add('show');
-  }
-
-  function hideModal() {
-    modalOverlay.classList.remove('show');
-    pendingForm = null;
-  }
-
-  modalCancel.addEventListener('click', hideModal);
-  modalOverlay.addEventListener('click', (e) => {
-    if (e.target === modalOverlay) hideModal();
-  });
-
-  modalConfirm.addEventListener('click', () => {
-    if (pendingForm) {
-      pendingForm.submit();
+  // Only set up modal functionality if all required elements exist
+  if (modalOverlay && modalTitle && modalBody && modalCancel && modalConfirm) {
+    function showModal(title, body, form) {
+      modalTitle.textContent = title;
+      modalBody.textContent = body;
+      pendingForm = form;
+      modalOverlay.classList.add('show');
     }
-    hideModal();
-  });
 
-  // Replace all confirm() calls with custom modal
-  document.querySelectorAll('form').forEach(form => {
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn) {
-      submitBtn.addEventListener('click', (e) => {
-        const formAction = form.action || '';
-        const isDelete = formAction.includes('delete') || formAction.includes('Delete');
-        const isClear = formAction.includes('clear') || formAction.includes('Clear');
-        const isSetToday = formAction.includes('set_today') || formAction.includes('Set Today');
-        const isOverwrite = formAction.includes('overwrite') || formAction.includes('Overwrite');
-
-        if (isDelete) {
-          e.preventDefault();
-          showModal('Confirm Deletion', 'Are you sure you want to delete this item? This action cannot be undone.', form);
-        } else if (isClear) {
-          e.preventDefault();
-          showModal('Confirm Clear', 'Are you sure you want to clear this date?', form);
-        } else if (isSetToday || isOverwrite) {
-          e.preventDefault();
-          showModal('Confirm Update', 'This will overwrite the existing date with today. Continue?', form);
-        }
-      });
+    function hideModal() {
+      modalOverlay.classList.remove('show');
+      pendingForm = null;
     }
-  });
+
+    modalCancel.addEventListener('click', hideModal);
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) hideModal();
+    });
+
+    modalConfirm.addEventListener('click', () => {
+      if (pendingForm) {
+        pendingForm.submit();
+      }
+      hideModal();
+    });
+
+    // Replace all confirm() calls with custom modal
+    document.querySelectorAll('form').forEach(form => {
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.addEventListener('click', (e) => {
+          const formAction = form.action || '';
+          const isDelete = formAction.includes('delete') || formAction.includes('Delete');
+          const isClear = formAction.includes('clear') || formAction.includes('Clear');
+          const isSetToday = formAction.includes('set_today') || formAction.includes('Set Today');
+          const isOverwrite = formAction.includes('overwrite') || formAction.includes('Overwrite');
+
+          if (isDelete) {
+            e.preventDefault();
+            showModal('Confirm Deletion', 'Are you sure you want to delete this item? This action cannot be undone.', form);
+          } else if (isClear) {
+            e.preventDefault();
+            showModal('Confirm Clear', 'Are you sure you want to clear this date?', form);
+          } else if (isSetToday || isOverwrite) {
+            e.preventDefault();
+            showModal('Confirm Update', 'This will overwrite the existing date with today. Continue?', form);
+          }
+        });
+      }
+    });
+  }
 });
