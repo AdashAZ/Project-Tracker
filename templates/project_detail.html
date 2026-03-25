@@ -36,7 +36,7 @@
     </div>
 
     <div class="hero-health">
-      <div class="hero-health-label">Project % Used</div>
+      <div class="hero-health-label">Project Hours % Used</div>
       <div class="usage-progress-wrap usage-progress-wrap-lg">
         <div class="usage-progress-track">
           <div class="usage-progress-fill" style="width: {{ "%.1f"|format(usage_pct_capped) }}%" data-completed="{{ 'true' if usage_pct >= 100 else 'false' }}"></div>
@@ -46,15 +46,15 @@
 
       <div class="hero-health-grid">
         <div class="hero-health-item">
-          <span>Quoted</span>
+          <span>Quoted Hrs</span>
           <strong>{{ "%.1f"|format(quoted_total) }}h</strong>
         </div>
         <div class="hero-health-item">
-          <span>Incurred</span>
+          <span>Incurred Hrs</span>
           <strong>{{ "%.1f"|format(incurred_total) }}h</strong>
         </div>
         <div class="hero-health-item">
-          <span>Remaining</span>
+          <span>Remaining Hrs</span>
           <strong>{{ "%.1f"|format(remaining_total) }}h</strong>
         </div>
         <div class="hero-health-item">
@@ -192,8 +192,8 @@
           {% endfor %}
         </select>
 
-        <label for="new_product_line">Or Create New Product / Line</label>
-        <input type="text" id="new_product_line" name="new_product_line" placeholder="New product/line name">
+        <label for="new_product_line">Or Create New Product / Line#</label>
+        <input type="text" id="new_product_line" name="new_product_line" placeholder="New product/line #">
 
         <label for="work_types">Work Types</label>
         <div class="machine-work-types-add" id="machine-work-types-add">
