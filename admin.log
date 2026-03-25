@@ -233,3 +233,23 @@
 2026-03-25 10:22:43,667 - INFO - 127.0.0.1 - - [25/Mar/2026 10:22:43] "[36mGET /static/favicon.ico HTTP/1.1[0m" 304 -
 2026-03-25 10:22:49,306 - INFO - 127.0.0.1 - - [25/Mar/2026 10:22:49] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
 2026-03-25 10:22:49,339 - INFO - 127.0.0.1 - - [25/Mar/2026 10:22:49] "[33mGET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1[0m" 404 -
+2026-03-25 10:25:03,072 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-03-25 10:25:03,073 - INFO - [33mPress CTRL+C to quit[0m
+2026-03-25 10:25:03,074 - INFO -  * Restarting with stat
+2026-03-25 10:25:03,966 - WARNING -  * Debugger is active!
+2026-03-25 10:25:03,968 - INFO -  * Debugger PIN: 488-594-482
+2026-03-25 10:25:04,028 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:04] "GET /admin/ HTTP/1.1" 200 -
+2026-03-25 10:25:04,160 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:04] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-03-25 10:25:04,189 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:04] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2026-03-25 10:25:04,197 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:04] "[36mGET /static/favicon-32x32.png HTTP/1.1[0m" 304 -
+2026-03-25 10:25:04,425 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:04] "[36mGET /static/favicon.ico HTTP/1.1[0m" 304 -
+2026-03-25 10:25:08,449 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:08] "GET /admin/ HTTP/1.1" 200 -
+2026-03-25 10:25:08,503 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:08] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-03-25 10:25:08,509 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:08] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2026-03-25 10:25:08,511 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:08] "[36mGET /static/favicon-32x32.png HTTP/1.1[0m" 304 -
+2026-03-25 10:25:08,554 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:08] "[36mGET /static/favicon.ico HTTP/1.1[0m" 304 -
+2026-03-25 10:25:18,046 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:18] "GET /admin/logs HTTP/1.1" 200 -
+2026-03-25 10:25:18,100 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:18] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-03-25 10:25:18,107 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:18] "[36mGET /static/js/main.js HTTP/1.1[0m" 304 -
+2026-03-25 10:25:18,108 - INFO - 127.0.0.1 - - [25/Mar/2026 10:25:18] "[36mGET /static/favicon-32x32.png HTTP/1.1[0m" 304 -
