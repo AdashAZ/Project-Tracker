@@ -3,7 +3,6 @@ import sqlite3
 import shutil
 import csv
 import json
-import logging
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, send_file
 from flask_wtf.csrf import validate_csrf
@@ -27,17 +26,6 @@ def csrf_exempt(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('admin.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
 # Create backup directory if it doesn't exist
 BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Backup')
 os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -56,7 +44,6 @@ def get_db_size():
             return round(size_mb, 2)
         return 0
     except Exception as e:
-        logger.error(f"Error getting database size: {e}")
         return 0
 
 def get_last_backup_info():
@@ -80,7 +67,6 @@ def get_last_backup_info():
             'size_mb': backup_size
         }
     except Exception as e:
-        logger.error(f"Error getting last backup info: {e}")
         return None
 
 def get_system_stats():
@@ -98,7 +84,6 @@ def get_system_stats():
         }
         return stats
     except Exception as e:
-        logger.error(f"Error getting system stats: {e}")
         return {}
 
 def backup_database():
@@ -113,10 +98,8 @@ def backup_database():
         db_path = current_app.config.get('DATABASE', 'instance/app.db')
         shutil.copy2(db_path, backup_path)
         
-        logger.info(f"Database backup created: {backup_filename}")
         return backup_filename
     except Exception as e:
-        logger.error(f"Error creating database backup: {e}")
         raise
 
 def restore_database(backup_filename):
@@ -128,15 +111,12 @@ def restore_database(backup_filename):
         
         # Create a backup of current database before restoring
         current_backup = backup_database()
-        logger.info(f"Current database backed up before restore: {current_backup}")
         
         # Restore from backup
         shutil.copy2(backup_path, db_path)
         
-        logger.info(f"Database restored from: {backup_filename}")
         return True
     except Exception as e:
-        logger.error(f"Error restoring database: {e}")
         raise
 
 def export_to_csv():
@@ -192,10 +172,8 @@ def export_to_csv():
         # Clean up the export directory
         shutil.rmtree(export_dir)
         
-        logger.info(f"CSV export created: export_{timestamp}.zip")
         return f'export_{timestamp}.zip'
     except Exception as e:
-        logger.error(f"Error exporting to CSV: {e}")
         raise
 
 def get_backup_files():
@@ -216,7 +194,6 @@ def get_backup_files():
         backup_files.sort(key=lambda x: x['created'], reverse=True)
         return backup_files
     except Exception as e:
-        logger.error(f"Error getting backup files: {e}")
         return []
 
 def get_export_files():
@@ -237,7 +214,6 @@ def get_export_files():
         export_files.sort(key=lambda x: x['created'], reverse=True)
         return export_files
     except Exception as e:
-        logger.error(f"Error getting export files: {e}")
         return []
 
 @admin_bp.route('/')
@@ -367,42 +343,4 @@ def delete_export(filename):
             'message': f'Error deleting export: {str(e)}'
         }), 500
 
-@admin_bp.route('/logs')
-def view_logs():
-    """View admin logs"""
-    try:
-        log_file = 'admin.log'
-        if os.path.exists(log_file):
-            with open(log_file, 'r') as f:
-                logs = f.read()
-        else:
-            logs = "No logs available."
-        
-        return render_template('admin_logs.html', logs=logs)
-    except Exception as e:
-        return jsonify({'success': False, 'message': f'Error reading logs: {str(e)}'}), 500
 
-@admin_bp.route('/clear_logs', methods=['POST'])
-def clear_logs():
-    """Clear admin logs"""
-    try:
-        log_file = 'admin.log'
-        if os.path.exists(log_file):
-            with open(log_file, 'w') as f:
-                f.write('')
-            logger.info("Admin logs cleared")
-            return jsonify({
-                'success': True,
-                'message': 'Logs cleared successfully'
-            })
-        else:
-            return jsonify({
-                'success': True,
-                'message': 'No logs to clear'
-            })
-    except Exception as e:
-        logger.error(f"Error clearing logs: {e}")
-        return jsonify({
-            'success': False,
-            'message': f'Error clearing logs: {str(e)}'
-        }), 500
