@@ -362,8 +362,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (confirmBtn) {
         confirmBtn.onclick = null; // Remove any existing handlers
         confirmBtn.addEventListener('click', async (event) => {
-            console.log('Confirm button clicked');
+            console.log('=== CONFIRM BUTTON CLICKED ===');
+            console.log('Event target:', event.target);
+            console.log('Event currentTarget:', event.currentTarget);
             console.log('Pending action:', pendingAction);
+            console.log('Pending data:', pendingData);
             
             // Stop event propagation to prevent other handlers from interfering
             event.stopPropagation();
@@ -378,12 +381,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const actionToExecute = pendingAction;
             const dataToUse = pendingData;
             
+            console.log('Executing action:', actionToExecute, 'with data:', dataToUse);
+            
             // Hide modal immediately to prevent further clicks
             hideModal();
             
             try {
                 if (actionToExecute === 'backup') {
-                    console.log('Starting backup process');
+                    console.log('=== CREATING BACKUP ===');
                     showProgress('Creating Backup', 'Please wait while we create a backup of your database...');
                     updateProgress(10, 'Initializing backup process...');
                     
@@ -409,7 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         throw new Error(result.message);
                     }
                 } else if (actionToExecute === 'restore') {
-                    console.log('Starting restore process');
+                    console.log('=== RESTORING DATABASE ===');
                     showProgress('Restoring Database', 'Please wait while we restore your database...');
                     updateProgress(10, 'Creating backup of current database...');
                     
@@ -436,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         throw new Error(result.message);
                     }
                 } else if (actionToExecute === 'export') {
-                    console.log('Starting export process');
+                    console.log('=== EXPORTING DATA ===');
                     showProgress('Exporting Data', 'Please wait while we export your data to CSV...');
                     updateProgress(10, 'Gathering data from all tables...');
                     
@@ -461,10 +466,51 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else {
                         throw new Error(result.message);
                     }
+                } else if (actionToExecute === 'delete_backup') {
+                    console.log('=== DELETING BACKUP ===');
+                    const response = await fetch(`/admin/delete_backup/${dataToUse}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                        }
+                    });
+                    
+                    console.log('Delete backup response status:', response.status);
+                    const result = await response.json();
+                    console.log('Delete backup result:', result);
+                    
+                    if (result.success) {
+                        showSuccessMessage('Backup file deleted successfully');
+                        location.reload();
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } else if (actionToExecute === 'delete_export') {
+                    console.log('=== DELETING EXPORT ===');
+                    const response = await fetch(`/admin/delete_export/${dataToUse}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
+                        }
+                    });
+                    
+                    console.log('Delete export response status:', response.status);
+                    const result = await response.json();
+                    console.log('Delete export result:', result);
+                    
+                    if (result.success) {
+                        showSuccessMessage('Export file deleted successfully');
+                        location.reload();
+                    } else {
+                        throw new Error(result.message);
+                    }
+                } else {
+                    console.log('Unknown action:', actionToExecute);
                 }
             } catch (error) {
                 console.error('Error in modal action:', error);
-                hideProgress();
                 showErrorMessage('Error: ' + error.message);
             }
         });
@@ -566,50 +612,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Handle delete actions
-    modalConfirm.addEventListener('click', async () => {
-        if (pendingAction === 'delete_backup') {
-            hideModal();
-            try {
-                const response = await fetch(`/admin/delete_backup/${pendingData}`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
-                    }
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    showSuccessMessage('Backup file deleted successfully');
-                    location.reload();
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                showErrorMessage('Error deleting backup: ' + error.message);
-            }
-        } else if (pendingAction === 'delete_export') {
-            hideModal();
-            try {
-                const response = await fetch(`/admin/delete_export/${pendingData}`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': document.querySelector('input[name="_csrf_token"]').value
-                    }
-                });
-                
-                const result = await response.json();
-                if (result.success) {
-                    showSuccessMessage('Export file deleted successfully');
-                    location.reload();
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                showErrorMessage('Error deleting export: ' + error.message);
-            }
-        }
-    });
 
     function showSuccessMessage(message) {
         // Create a temporary success message
