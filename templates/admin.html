@@ -5,233 +5,240 @@
 {% block content %}
 <div class="admin-dashboard">
     <div class="admin-header">
-        <h1>Admin Panel</h1>
-        <p>System administration and data management</p>
+        <div class="header-content">
+            <h1><i class="fas fa-cog"></i> Admin Panel</h1>
+            <p>System administration and data management</p>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('admin.view_logs') }}" class="btn-secondary">
+                <i class="fas fa-file-alt"></i> View Logs
+            </a>
+        </div>
     </div>
 
-    <!-- System Status Section -->
-    <section class="admin-section">
-        <div class="section-title-row">
-            <h2>System Status</h2>
-            <span class="section-caption">Overview of your project data</span>
-        </div>
-        
+    <!-- Quick Stats Overview -->
+    <section class="stats-overview">
         <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total_projects }}</div>
-                <div class="stat-label">Total Projects</div>
+            <div class="stat-card primary">
+                <div class="stat-icon">
+                    <i class="fas fa-project-diagram"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value">{{ stats.total_projects }}</div>
+                    <div class="stat-label">Total Projects</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total_machines }}</div>
-                <div class="stat-label">Total Machines</div>
+            <div class="stat-card secondary">
+                <div class="stat-icon">
+                    <i class="fas fa-cogs"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value">{{ stats.total_machines }}</div>
+                    <div class="stat-label">Machines</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total_time_entries }}</div>
-                <div class="stat-label">Time Entries</div>
+            <div class="stat-card info">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value">{{ stats.total_time_entries }}</div>
+                    <div class="stat-label">Time Entries</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total_comments }}</div>
-                <div class="stat-label">Comments</div>
+            <div class="stat-card success">
+                <div class="stat-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value">{{ stats.total_comments }}</div>
+                    <div class="stat-label">Comments</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total_product_lines }}</div>
-                <div class="stat-label">Product Lines</div>
+            <div class="stat-card warning">
+                <div class="stat-icon">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value">{{ stats.db_size_mb }} MB</div>
+                    <div class="stat-label">Database Size</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total_work_types }}</div>
-                <div class="stat-label">Work Types</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.db_size_mb }} MB</div>
-                <div class="stat-label">Database Size</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">
+            <div class="stat-card danger">
+                <div class="stat-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-value">
+                        {% if stats.last_backup %}
+                            <span class="status-badge success">Backed up</span>
+                        {% else %}
+                            <span class="status-badge danger">Never</span>
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">Last Backup</div>
                     {% if stats.last_backup %}
-                        {{ stats.last_backup.time }}
-                    {% else %}
-                        Never
+                        <div class="stat-sublabel">{{ stats.last_backup.time }}</div>
                     {% endif %}
                 </div>
-                <div class="stat-label">Last Backup</div>
             </div>
         </div>
     </section>
 
-    <!-- Database Operations Section -->
-    <section class="admin-section">
-        <div class="section-title-row">
-            <h2>Database Operations</h2>
-            <span class="section-caption">Backup, restore, and export your data</span>
+    <!-- Database Operations -->
+    <section class="operations-section">
+        <div class="section-header">
+            <h2><i class="fas fa-database"></i> Database Operations</h2>
+            <p>Backup, restore, and export your data safely</p>
         </div>
         
         <div class="operations-grid">
             <div class="operation-card">
-                <div class="operation-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                    </svg>
+                <div class="operation-icon primary">
+                    <i class="fas fa-save"></i>
                 </div>
                 <div class="operation-content">
                     <h3>Create Backup</h3>
-                    <p>Create a backup of your entire database</p>
-                    <button type="button" class="btn-primary" id="backup-btn">
-                        <span class="btn-spinner" style="display: none;"></span>
-                        <span class="btn-text">Create Backup</span>
-                    </button>
+                    <p class="operation-desc">Create a complete backup of your database for safekeeping</p>
+                    <div class="operation-actions">
+                        <button type="button" class="btn-primary btn-large" id="backup-btn">
+                            <i class="fas fa-spinner fa-spin" style="display: none;"></i>
+                            <span>Create Backup</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div class="operation-card">
-                <div class="operation-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 12h18"></path>
-                        <path d="M3 6h18"></path>
-                        <path d="M3 18h18"></path>
-                        <path d="M8 12l-4 4 4 4"></path>
-                    </svg>
+                <div class="operation-icon secondary">
+                    <i class="fas fa-file-export"></i>
                 </div>
                 <div class="operation-content">
                     <h3>Export Data</h3>
-                    <p>Export all data to CSV files</p>
-                    <button type="button" class="btn-secondary" id="export-btn">
-                        <span class="btn-spinner" style="display: none;"></span>
-                        <span class="btn-text">Export to CSV</span>
-                    </button>
+                    <p class="operation-desc">Export all data to CSV files for analysis or migration</p>
+                    <div class="operation-actions">
+                        <button type="button" class="btn-secondary btn-large" id="export-btn">
+                            <i class="fas fa-spinner fa-spin" style="display: none;"></i>
+                            <span>Export to CSV</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div class="operation-card">
-                <div class="operation-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                    </svg>
+                <div class="operation-icon info">
+                    <i class="fas fa-history"></i>
                 </div>
                 <div class="operation-content">
-                    <h3>View Logs</h3>
-                    <p>Check system logs and error messages</p>
-                    <a href="{{ url_for('admin.view_logs') }}" class="btn-secondary">View Logs</a>
+                    <h3>System Logs</h3>
+                    <p class="operation-desc">Monitor system activity and troubleshoot issues</p>
+                    <div class="operation-actions">
+                        <a href="{{ url_for('admin.view_logs') }}" class="btn-info btn-large">
+                            <i class="fas fa-file-alt"></i>
+                            <span>View Logs</span>
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Backup Files Section -->
-    <section class="admin-section">
-        <div class="section-title-row">
-            <h2>Backup Files</h2>
-            <span class="section-caption">Manage your database backups</span>
+    <!-- File Management -->
+    <section class="files-section">
+        <div class="section-header">
+            <h2><i class="fas fa-folder"></i> File Management</h2>
+            <p>Manage your backup and export files</p>
         </div>
         
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Filename</th>
-                        <th>Size</th>
-                        <th>Created</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <div class="files-grid">
+            <!-- Backup Files -->
+            <div class="file-section">
+                <div class="file-header">
+                    <h3><i class="fas fa-save"></i> Backup Files</h3>
+                    <span class="file-count">{{ backup_files|length }} files</span>
+                </div>
+                
+                <div class="file-table">
                     {% if backup_files %}
                         {% for backup in backup_files %}
-                        <tr>
-                            <td>{{ backup.filename }}</td>
-                            <td>{{ backup.size_mb }} MB</td>
-                            <td>{{ backup.created }}</td>
-                            <td class="row-actions">
-                                <button type="button" class="btn-mini btn-restore" data-filename="{{ backup.filename }}">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                                        <path d="M3 3v5h5"></path>
-                                    </svg>
-                                    Restore
+                        <div class="file-row">
+                            <div class="file-info">
+                                <div class="file-name">
+                                    <i class="fas fa-database"></i>
+                                    {{ backup.filename }}
+                                </div>
+                                <div class="file-meta">
+                                    <span class="file-size">{{ backup.size_mb }} MB</span>
+                                    <span class="file-date">{{ backup.created }}</span>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <button type="button" class="btn-icon btn-restore" data-filename="{{ backup.filename }}" title="Restore">
+                                    <i class="fas fa-undo"></i>
                                 </button>
-                                <a href="{{ url_for('admin.download_file', filename=backup.filename) }}" class="btn-mini">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                        <polyline points="7 10 12 15 17 10"></polyline>
-                                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                                    </svg>
-                                    Download
+                                <a href="{{ url_for('admin.download_file', filename=backup.filename) }}" class="btn-icon" title="Download">
+                                    <i class="fas fa-download"></i>
                                 </a>
-                                <button type="button" class="btn-mini btn-link-danger btn-delete-backup" data-filename="{{ backup.filename }}">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M3 6h18"></path>
-                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                    </svg>
-                                    Delete
+                                <button type="button" class="btn-icon btn-danger btn-delete-backup" data-filename="{{ backup.filename }}" title="Delete">
+                                    <i class="fas fa-trash"></i>
                                 </button>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
                         {% endfor %}
                     {% else %}
-                        <tr>
-                            <td colspan="4" class="empty-state">No backup files found</td>
-                        </tr>
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>No backup files found</p>
+                            <button type="button" class="btn-secondary" id="backup-btn-empty">
+                                <i class="fas fa-save"></i> Create First Backup
+                            </button>
+                        </div>
                     {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </section>
+                </div>
+            </div>
 
-    <!-- Export Files Section -->
-    <section class="admin-section">
-        <div class="section-title-row">
-            <h2>Export Files</h2>
-            <span class="section-caption">Download your exported CSV data</span>
-        </div>
-        
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Filename</th>
-                        <th>Size</th>
-                        <th>Created</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <!-- Export Files -->
+            <div class="file-section">
+                <div class="file-header">
+                    <h3><i class="fas fa-file-archive"></i> Export Files</h3>
+                    <span class="file-count">{{ export_files|length }} files</span>
+                </div>
+                
+                <div class="file-table">
                     {% if export_files %}
                         {% for export in export_files %}
-                        <tr>
-                            <td>{{ export.filename }}</td>
-                            <td>{{ export.size_mb }} MB</td>
-                            <td>{{ export.created }}</td>
-                            <td class="row-actions">
-                                <a href="{{ url_for('admin.download_file', filename=export.filename) }}" class="btn-mini">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                        <polyline points="7 10 12 15 17 10"></polyline>
-                                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                                    </svg>
-                                    Download
+                        <div class="file-row">
+                            <div class="file-info">
+                                <div class="file-name">
+                                    <i class="fas fa-file-archive"></i>
+                                    {{ export.filename }}
+                                </div>
+                                <div class="file-meta">
+                                    <span class="file-size">{{ export.size_mb }} MB</span>
+                                    <span class="file-date">{{ export.created }}</span>
+                                </div>
+                            </div>
+                            <div class="file-actions">
+                                <a href="{{ url_for('admin.download_file', filename=export.filename) }}" class="btn-icon" title="Download">
+                                    <i class="fas fa-download"></i>
                                 </a>
-                                <button type="button" class="btn-mini btn-link-danger btn-delete-export" data-filename="{{ export.filename }}">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M3 6h18"></path>
-                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                                    </svg>
-                                    Delete
+                                <button type="button" class="btn-icon btn-danger btn-delete-export" data-filename="{{ export.filename }}" title="Delete">
+                                    <i class="fas fa-trash"></i>
                                 </button>
-                            </td>
-                        </tr>
+                            </div>
+                        </div>
                         {% endfor %}
                     {% else %}
-                        <tr>
-                            <td colspan="4" class="empty-state">No export files found</td>
-                        </tr>
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>No export files found</p>
+                            <button type="button" class="btn-secondary" id="export-btn-empty">
+                                <i class="fas fa-file-export"></i> Create Export
+                            </button>
+                        </div>
                     {% endif %}
-                </tbody>
-            </table>
+                </div>
+            </div>
         </div>
     </section>
 </div>
@@ -430,6 +437,23 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     exportBtn.addEventListener('click', () => {
+        showModal(
+            'Export Data to CSV',
+            'This will export all your data to CSV files. Continue?',
+            'export'
+        );
+    });
+
+    // Empty state buttons
+    document.getElementById('backup-btn-empty')?.addEventListener('click', () => {
+        showModal(
+            'Create Database Backup',
+            'This will create a backup of your entire database. Continue?',
+            'backup'
+        );
+    });
+
+    document.getElementById('export-btn-empty')?.addEventListener('click', () => {
         showModal(
             'Export Data to CSV',
             'This will export all your data to CSV files. Continue?',
