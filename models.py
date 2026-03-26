@@ -83,6 +83,10 @@ class Machine(db.Model):
     report_sent_customer_date = db.Column(db.Date, nullable=True)
     report_sent_review_edb_date = db.Column(db.Date, nullable=True)
     released_in_edb_date = db.Column(db.Date, nullable=True)
+    uploaded_s_drive_reports_date = db.Column(db.Date, nullable=True)
+    uploaded_s_drive_jsa_date = db.Column(db.Date, nullable=True)
+    uploaded_s_drive_photos_date = db.Column(db.Date, nullable=True)
+    uploaded_s_drive_vizio_date = db.Column(db.Date, nullable=True)
 
     quoted_hours = db.Column(db.Float, default=0.0)
     incurred_hours = db.Column(db.Float, default=0.0)

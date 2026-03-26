@@ -47,6 +47,26 @@ MACHINE_MILESTONE_DEFINITIONS = [
         "label": "Released in EDB",
         "field": "released_in_edb_date",
     },
+    {
+        "key": "uploaded_s_drive_reports",
+        "label": "Uploaded to S Drive - REPORT(s)",
+        "field": "uploaded_s_drive_reports_date",
+    },
+    {
+        "key": "uploaded_s_drive_jsa",
+        "label": "Uploaded to S Drive - JSA",
+        "field": "uploaded_s_drive_jsa_date",
+    },
+    {
+        "key": "uploaded_s_drive_photos",
+        "label": "Uploaded to S Drive - PHOTOS",
+        "field": "uploaded_s_drive_photos_date",
+    },
+    {
+        "key": "uploaded_s_drive_vizio",
+        "label": "Uploaded to S Drive - VIZIO",
+        "field": "uploaded_s_drive_vizio_date",
+    },
 ]
 MILESTONE_FIELD_BY_KEY = {item["key"]: item["field"] for item in MACHINE_MILESTONE_DEFINITIONS}
 
@@ -702,6 +722,10 @@ def create_app():
         sent_customer_raw = request.form.get("report_sent_customer_date")
         sent_review_edb_raw = request.form.get("report_sent_review_edb_date")
         released_edb_raw = request.form.get("released_in_edb_date")
+        uploaded_s_drive_reports_raw = request.form.get("uploaded_s_drive_reports_date")
+        uploaded_s_drive_jsa_raw = request.form.get("uploaded_s_drive_jsa_date")
+        uploaded_s_drive_photos_raw = request.form.get("uploaded_s_drive_photos_date")
+        uploaded_s_drive_vizio_raw = request.form.get("uploaded_s_drive_vizio_date")
         work_types_payload_raw = request.form.get("work_types_payload")
 
         if not machine_name:
@@ -752,6 +776,26 @@ def create_app():
             flash("Invalid released in EDB date.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
+        uploaded_s_drive_reports = parse_date_input(uploaded_s_drive_reports_raw)
+        if uploaded_s_drive_reports_raw and uploaded_s_drive_reports is None:
+            flash("Invalid uploaded to S Drive REPORT(s) date.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        uploaded_s_drive_jsa = parse_date_input(uploaded_s_drive_jsa_raw)
+        if uploaded_s_drive_jsa_raw and uploaded_s_drive_jsa is None:
+            flash("Invalid uploaded to S Drive JSA date.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        uploaded_s_drive_photos = parse_date_input(uploaded_s_drive_photos_raw)
+        if uploaded_s_drive_photos_raw and uploaded_s_drive_photos is None:
+            flash("Invalid uploaded to S Drive PHOTOS date.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        uploaded_s_drive_vizio = parse_date_input(uploaded_s_drive_vizio_raw)
+        if uploaded_s_drive_vizio_raw and uploaded_s_drive_vizio is None:
+            flash("Invalid uploaded to S Drive VIZIO date.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
         machine.machine_name = machine_name
         machine.product_line_id = product_line_id_value
         machine.status = status
@@ -763,6 +807,10 @@ def create_app():
         machine.report_sent_customer_date = sent_customer
         machine.report_sent_review_edb_date = sent_review_edb
         machine.released_in_edb_date = released_edb
+        machine.uploaded_s_drive_reports_date = uploaded_s_drive_reports
+        machine.uploaded_s_drive_jsa_date = uploaded_s_drive_jsa
+        machine.uploaded_s_drive_photos_date = uploaded_s_drive_photos
+        machine.uploaded_s_drive_vizio_date = uploaded_s_drive_vizio
 
         MachineWorkType.query.filter_by(machine_id=machine.id).delete()
         for wt in parsed_work_types:
@@ -1108,6 +1156,10 @@ def ensure_machine_schema():
         "report_sent_customer_date": "DATE",
         "report_sent_review_edb_date": "DATE",
         "released_in_edb_date": "DATE",
+        "uploaded_s_drive_reports_date": "DATE",
+        "uploaded_s_drive_jsa_date": "DATE",
+        "uploaded_s_drive_photos_date": "DATE",
+        "uploaded_s_drive_vizio_date": "DATE",
         "product_line_id": "INTEGER",
     }
 

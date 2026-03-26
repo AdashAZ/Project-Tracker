@@ -388,8 +388,30 @@
                   </div>
 
                   <div>
-                  <label for="edit-report-sent-review-edb-date-{{ machine.id }}">Report Sent for Review in EDB</label>
-                  <input type="date" id="edit-report-sent-review-edb-date-{{ machine.id }}" name="report_sent_review_edb_date" value="{{ machine.report_sent_review_edb_date.isoformat() if machine.report_sent_review_edb_date else '' }}">
+                    <label for="edit-released-edb-{{ machine.id }}">Released in EDB</label>
+                    <input type="date" id="edit-released-edb-{{ machine.id }}" name="released_in_edb_date" value="{{ machine.released_in_edb_date.isoformat() if machine.released_in_edb_date else '' }}">
+                  </div>
+
+                  <div>
+                    <label for="edit-uploaded-s-drive-reports-{{ machine.id }}">Uploaded to S Drive - REPORT(s)</label>
+                    <input type="date" id="edit-uploaded-s-drive-reports-{{ machine.id }}" name="uploaded_s_drive_reports_date" value="{{ machine.uploaded_s_drive_reports_date.isoformat() if machine.uploaded_s_drive_reports_date else '' }}">
+                  </div>
+
+                  <div>
+                    <label for="edit-uploaded-s-drive-jsa-{{ machine.id }}">Uploaded to S Drive - JSA</label>
+                    <input type="date" id="edit-uploaded-s-drive-jsa-{{ machine.id }}" name="uploaded_s_drive_jsa_date" value="{{ machine.uploaded_s_drive_jsa_date.isoformat() if machine.uploaded_s_drive_jsa_date else '' }}">
+                  </div>
+
+                  <div>
+                    <label for="edit-uploaded-s-drive-photos-{{ machine.id }}">Uploaded to S Drive - PHOTOS</label>
+                    <input type="date" id="edit-uploaded-s-drive-photos-{{ machine.id }}" name="uploaded_s_drive_photos_date" value="{{ machine.uploaded_s_drive_photos_date.isoformat() if machine.uploaded_s_drive_photos_date else '' }}">
+                  </div>
+
+                  <div>
+                    <label for="edit-uploaded-s-drive-vizio-{{ machine.id }}">Uploaded to S Drive - VIZIO</label>
+                    <input type="date" id="edit-uploaded-s-drive-vizio-{{ machine.id }}" name="uploaded_s_drive_vizio_date" value="{{ machine.uploaded_s_drive_vizio_date.isoformat() if machine.uploaded_s_drive_vizio_date else '' }}">
+                  </div>
+                </div>
 
                 <div class="machine-work-types-editor" data-machine-work-types-editor>
                   <div class="machine-work-types-header">
