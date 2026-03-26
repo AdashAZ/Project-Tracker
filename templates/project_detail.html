@@ -411,6 +411,11 @@
                     <label for="edit-uploaded-s-drive-vizio-{{ machine.id }}">Uploaded to S Drive - VIZIO</label>
                     <input type="date" id="edit-uploaded-s-drive-vizio-{{ machine.id }}" name="uploaded_s_drive_vizio_date" value="{{ machine.uploaded_s_drive_vizio_date.isoformat() if machine.uploaded_s_drive_vizio_date else '' }}">
                   </div>
+
+                  <div>
+                    <label for="edit-log-updated-{{ machine.id }}">Log Updated</label>
+                    <input type="date" id="edit-log-updated-{{ machine.id }}" name="log_updated_date" value="{{ machine.log_updated_date.isoformat() if machine.log_updated_date else '' }}">
+                  </div>
                 </div>
 
                 <div class="machine-work-types-editor" data-machine-work-types-editor>

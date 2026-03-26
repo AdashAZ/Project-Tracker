@@ -87,6 +87,7 @@ class Machine(db.Model):
     uploaded_s_drive_jsa_date = db.Column(db.Date, nullable=True)
     uploaded_s_drive_photos_date = db.Column(db.Date, nullable=True)
     uploaded_s_drive_vizio_date = db.Column(db.Date, nullable=True)
+    log_updated_date = db.Column(db.Date, nullable=True)
 
     quoted_hours = db.Column(db.Float, default=0.0)
     incurred_hours = db.Column(db.Float, default=0.0)
