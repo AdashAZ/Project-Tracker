@@ -72,11 +72,20 @@ def get_last_backup_info():
 def get_system_stats():
     """Get system statistics"""
     try:
+        # Get current year for year-to-date calculation
+        current_year = datetime.now().year
+        
+        # Count completed projects for the current year
+        completed_projects_ytd = Project.query.filter(
+            Project.status == 'Completed',
+            db.func.strftime('%Y', Project.created_at) == str(current_year)
+        ).count()
+        
         stats = {
             'total_projects': Project.query.count(),
             'total_machines': Machine.query.count(),
             'total_time_entries': TimeEntry.query.count(),
-            'total_comments': Comment.query.count(),
+            'completed_projects_ytd': completed_projects_ytd,
             'total_product_lines': ProductLine.query.count(),
             'total_work_types': WorkType.query.count(),
             'db_size_mb': get_db_size(),

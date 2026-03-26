@@ -91,8 +91,10 @@ def create_app():
     app.register_blueprint(admin_bp)
 
     with app.app_context():
-        db.create_all()
+        # Ensure schema migrations run before any model queries
+        ensure_project_schema()
         ensure_machine_schema()
+        db.create_all()
 
     def parse_date_input(value: str | None):
         if not value:
@@ -1224,6 +1226,30 @@ def ensure_machine_schema():
     )
 
     db.session.commit()
+
+
+def ensure_project_schema():
+    """Add created_at field to existing projects and set default values"""
+    existing_cols = {
+        row[1]
+        for row in db.session.execute(text("PRAGMA table_info(projects)")).fetchall()
+    }
+
+    # Add created_at column if it doesn't exist
+    if "created_at" not in existing_cols:
+        db.session.execute(text("ALTER TABLE projects ADD COLUMN created_at DATETIME"))
+        db.session.commit()
+
+    # Set created_at for existing projects that don't have it
+    # For existing projects, set created_at to their current modification time or a reasonable default
+    projects_without_created_at = Project.query.filter(Project.created_at.is_(None)).all()
+    for project in projects_without_created_at:
+        # Set created_at to the current time for existing projects
+        # In a real scenario, you might want to set this to a more accurate historical date
+        project.created_at = datetime.utcnow()
+    
+    if projects_without_created_at:
+        db.session.commit()
 
 
 if __name__ == "__main__":

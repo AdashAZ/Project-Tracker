@@ -18,6 +18,7 @@ class Project(db.Model):
 
     due_date = db.Column(db.Date)
     status = db.Column(db.String(50), default="N/S")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     quoted_hours_total = db.Column(db.Float, default=0.0)
     incurred_hours_total = db.Column(db.Float, default=0.0)
