@@ -39,7 +39,7 @@
       <div class="hero-health-label">Project Hours % Used</div>
       <div class="usage-progress-wrap usage-progress-wrap-lg">
         <div class="usage-progress-track">
-          <div class="usage-progress-fill" style="width: {{ "%.1f"|format(usage_pct_capped) }}%" data-completed="{{ 'true' if usage_pct >= 100 else 'false' }}"></div>
+          <div class="usage-progress-fill" style="width: '{{ "%.1f"|format(usage_pct_capped) }}%'" data-completed="{{ 'true' if usage_pct >= 100 else 'false' }}"></div>
         </div>
         <span class="usage-progress-text">{{ "%.1f"|format(project.percent_used) }}%</span>
       </div>
