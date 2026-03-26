@@ -491,6 +491,39 @@ tr:nth-child(even) td {
   background-color: #fbfdff;
 }
 
+/* Machine status colors - more specific to override even row styling */
+tbody tr.machine-status-n-s td:not(.milestone-done) {
+  background-color: #ffc000 !important;
+}
+
+tbody tr.machine-status-wip td:not(.milestone-done) {
+  background-color: #ccccff !important;
+}
+
+tbody tr.machine-status-stopped td:not(.milestone-done) {
+  background-color: #ff3300 !important;
+  color: #ffffff !important;
+}
+
+tbody tr.machine-status-in-review td:not(.milestone-done) {
+  background-color: #4fd1ff !important;
+}
+
+tbody tr.machine-status-completed td {
+  background-color: #e3f4e8 !important;
+}
+
+tbody tr.machine-status-stopped a,
+tbody tr.machine-status-stopped .btn-link-danger {
+  color: #ffffff !important;
+}
+
+tbody tr.machine-status-stopped select {
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #1b1b1b;
+  border-color: #ffb1a0;
+}
+
 .overdue {
   color: #b00020;
   font-weight: 800;
