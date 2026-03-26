@@ -202,7 +202,7 @@ h3 {
   font-weight: 800;
   border-radius: 12px;
   border: none;
-  background: linear-gradient(135deg, #2f6fbd, #1f5caa);
+  background: linear-gradient(135deg, #2f6fbd, #1faa65);
   color: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -259,7 +259,7 @@ h3 {
 
 #add-work-type-btn {
   align-self: flex-start;
-  background: linear-gradient(135deg, #3b7cab, #2f678f);
+  background: linear-gradient(135deg, #2f6fbd, #0667ef);
   border: none;
   color: #ffffff;
   padding: 0.6rem 1rem;
@@ -1051,7 +1051,7 @@ tr:nth-child(even) td {
 
 .section-toggle-btn {
   background: #ecf3ff;
-  color: #24466f;
+  color: #da8907;
   border: 1px solid #bfd1e9;
   padding: 0.33rem 0.65rem;
   border-radius: 999px;
@@ -1066,7 +1066,7 @@ tr:nth-child(even) td {
 }
 
 .section-toggle-btn.is-active {
-  background: linear-gradient(180deg, #2f6fbd, #1f5caa);
+  background: linear-gradient(180deg, #da8907, #da8907);
   color: #fff;
   border-color: #1d4f8e;
 }
