@@ -13,6 +13,22 @@
         </div>
     </div>
 
+    <section class="admin-chart-section">
+        <div class="section-header admin-chart-header">
+            <div>
+                <h2><i class="fas fa-chart-column"></i> 2026 Project Due Dates by Month</h2>
+                <p>Projects are counted by due date month across the full 2026 calendar year.</p>
+            </div>
+            <div class="admin-chart-total">
+                <span class="admin-chart-total-label">2026 Total</span>
+                <span class="admin-chart-total-value">{{ due_date_chart.total }}</span>
+            </div>
+        </div>
+        <div class="admin-chart-wrap">
+            <canvas id="projects-due-chart" aria-label="2026 project due dates by month" role="img"></canvas>
+        </div>
+    </section>
+
     <!-- Quick Stats Overview -->
     <section class="stats-overview">
         <div class="stats-grid">
@@ -262,8 +278,98 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const dueDateChartData = {{ due_date_chart|tojson }};
+    const dueChartCanvas = document.getElementById('projects-due-chart');
+
+    if (dueChartCanvas && window.Chart) {
+        const ctx = dueChartCanvas.getContext('2d');
+        const barGradient = ctx.createLinearGradient(0, 0, 0, 320);
+        barGradient.addColorStop(0, 'rgba(70, 140, 214, 0.95)');
+        barGradient.addColorStop(1, 'rgba(30, 72, 122, 0.88)');
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: dueDateChartData.labels,
+                datasets: [{
+                    label: 'Projects',
+                    data: dueDateChartData.counts,
+                    backgroundColor: barGradient,
+                    borderColor: '#1b4e85',
+                    borderWidth: 1.5,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    hoverBackgroundColor: '#5d99db',
+                    maxBarThickness: 44
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(18, 32, 49, 0.96)',
+                        titleColor: '#f4f8fc',
+                        bodyColor: '#dce9f8',
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            title: function(context) {
+                                return context[0].label + ' ' + dueDateChartData.year;
+                            },
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                return value + ' project' + (value === 1 ? '' : 's');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#556b86',
+                            font: {
+                                size: 12,
+                                weight: '600'
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            stepSize: 1,
+                            color: '#556b86',
+                            font: {
+                                size: 12,
+                                weight: '600'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(122, 146, 176, 0.18)'
+                        },
+                        border: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     const backupBtn = document.getElementById('backup-btn');
     const exportBtn = document.getElementById('export-btn');
     const modalOverlay = document.getElementById('admin-modal-overlay');

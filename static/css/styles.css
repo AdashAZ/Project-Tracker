@@ -1869,6 +1869,55 @@ tr:nth-child(even) td {
   gap: 0.5rem;
 }
 
+/* Admin Chart */
+.admin-chart-section {
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  border: 1px solid #cdd9ea;
+  border-radius: 18px;
+  padding: 1.3rem 1.3rem 1.1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.admin-chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-chart-total {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  padding: 0.75rem 0.95rem;
+  min-width: 110px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #eff6ff, #e4eefc);
+  border: 1px solid #c8d9f0;
+}
+
+.admin-chart-total-label {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #617792;
+}
+
+.admin-chart-total-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #1a2a40;
+}
+
+.admin-chart-wrap {
+  position: relative;
+  min-height: 340px;
+  margin-top: 1rem;
+}
+
 /* Stats Overview */
 .stats-overview {
   background: linear-gradient(180deg, #ffffff, #f8fbff);
@@ -2229,6 +2278,18 @@ tr:nth-child(even) td {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.8rem;
+  }
+
+  .admin-chart-header {
+    flex-direction: column;
+  }
+
+  .admin-chart-total {
+    align-items: flex-start;
+  }
+
+  .admin-chart-wrap {
+    min-height: 280px;
   }
   
   .stats-grid {

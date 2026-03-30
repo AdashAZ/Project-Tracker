@@ -3,7 +3,7 @@ import sqlite3
 import shutil
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, date
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, send_file
 from flask_wtf.csrf import validate_csrf
 from werkzeug.exceptions import BadRequest
@@ -94,6 +94,36 @@ def get_system_stats():
         return stats
     except Exception as e:
         return {}
+
+
+def get_due_date_projects_by_month(target_year=2026):
+    """Return 12-month due-date counts for the requested calendar year."""
+    month_labels = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ]
+    month_counts = [0] * 12
+
+    try:
+        start_date = date(target_year, 1, 1)
+        end_date = date(target_year, 12, 31)
+        projects = Project.query.filter(
+            Project.due_date.isnot(None),
+            Project.due_date >= start_date,
+            Project.due_date <= end_date
+        ).all()
+
+        for project in projects:
+            month_counts[project.due_date.month - 1] += 1
+    except Exception:
+        month_counts = [0] * 12
+
+    return {
+        "year": target_year,
+        "labels": month_labels,
+        "counts": month_counts,
+        "total": sum(month_counts),
+    }
 
 def backup_database():
     """Create a backup of the database"""
@@ -231,11 +261,13 @@ def admin_dashboard():
     stats = get_system_stats()
     backup_files = get_backup_files()
     export_files = get_export_files()
+    due_date_chart = get_due_date_projects_by_month(2026)
     
     return render_template('admin.html', 
                          stats=stats, 
                          backup_files=backup_files,
-                         export_files=export_files)
+                         export_files=export_files,
+                         due_date_chart=due_date_chart)
 
 @admin_bp.route('/backup', methods=['POST'])
 @csrf_exempt
