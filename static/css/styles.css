@@ -2479,3 +2479,206 @@ tr:nth-child(even) td {
   color: #4f6581;
   font-size: 0.9rem;
 }
+
+/* New Project Page */
+.new-project-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.new-project-heading h1 {
+  margin: 0 0 0.25rem;
+}
+
+.new-project-heading p {
+  margin: 0;
+  color: var(--text-dim);
+  max-width: 70ch;
+}
+
+.new-project-form {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.project-form-card {
+  background: linear-gradient(180deg, #ffffff, #f7fbff);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 1rem 1.05rem;
+}
+
+.project-form-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.project-form-card-header h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.05rem;
+  color: #1a2a40;
+}
+
+.project-form-card-header p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.new-project-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 0.9rem;
+}
+
+.new-project-field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.new-project-field label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.new-project-field input,
+.new-project-field select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.project-planning-row {
+  margin-top: 0.85rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(157, 178, 207, 0.35);
+}
+
+.planning-field {
+  max-width: 320px;
+}
+
+.machine-builder-card .project-form-card-header {
+  margin-bottom: 0.95rem;
+}
+
+.product-line-builder-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.product-line-builder-item {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid rgba(157, 178, 207, 0.45);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f9fbff, #f4f8ff);
+  padding: 0.8rem;
+}
+
+.product-line-builder-top,
+.machine-builder-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.product-line-builder-top label,
+.machine-builder-top label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.product-line-builder-item > input,
+.machine-builder-item > input {
+  width: 100%;
+  max-width: 100%;
+}
+
+.new-project-form .machine-builder-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 0.2rem;
+  inline-size: 100%;
+}
+
+.new-project-form .machine-builder-item {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  background: #ffffff;
+  border: 1px solid rgba(157, 178, 207, 0.35);
+  border-radius: 12px;
+}
+
+.machine-work-types {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.new-project-form .machine-work-type-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 150px) minmax(180px, 220px) minmax(0, 1fr);
+  align-items: end;
+  gap: 0.5rem;
+}
+
+.new-project-form .machine-work-type-row label {
+  display: block;
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.new-project-form .machine-work-type-row select,
+.new-project-form .machine-work-type-row input {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.work-type-add-btn,
+.add-machine-btn,
+.add-product-line-btn {
+  inline-size: fit-content;
+}
+
+.new-project-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .new-project-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .new-project-form .machine-work-type-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .new-project-actions {
+    justify-content: stretch;
+  }
+
+  .new-project-actions button {
+    width: 100%;
+  }
+}

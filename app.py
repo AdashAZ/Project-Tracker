@@ -408,6 +408,7 @@ def create_app():
             na_number = request.form.get("na_number")
             edb_number = request.form.get("edb_number")
             due_date_str = request.form.get("due_date")
+            status = request.form.get("status") or "N/S"
             quoted_hours_total = request.form.get("quoted_hours_total") or "0"
             product_lines_payload = request.form.get("product_lines_payload")
 
@@ -437,6 +438,7 @@ def create_app():
                 na_number=na_number,
                 edb_number=edb_number,
                 due_date=due_date,
+                status=status,
                 quoted_hours_total=quoted_hours,
             )
             db.session.add(project)
