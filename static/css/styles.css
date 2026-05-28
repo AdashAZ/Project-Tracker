@@ -2581,6 +2581,45 @@ tr:nth-child(even) td {
   max-width: 320px;
 }
 
+.quoted-hours-builder {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.quoted-hours-builder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.quoted-hours-builder-header label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.job-quote-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.job-quote-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 140px) minmax(150px, 190px) minmax(180px, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.job-quote-row input,
+.job-quote-row select {
+  width: 100%;
+  min-width: 0;
+}
+
 .machine-builder-card .project-form-card-header {
   margin-bottom: 0.95rem;
 }
@@ -2684,6 +2723,11 @@ tr:nth-child(even) td {
   }
 
   .new-project-form .machine-work-type-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .job-quote-row {
     grid-template-columns: 1fr;
     align-items: stretch;
   }

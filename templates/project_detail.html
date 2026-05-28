@@ -232,6 +232,7 @@
             <th>Machine / Asset #</th>
             <th>Job</th>
             <th class="machine-col-status">Work Status</th>
+            <th class="machine-col-tracked">Quoted Hours</th>
             <th class="machine-col-tracked">Tracked Hours</th>
             <th>Entries</th>
             {% for milestone in milestone_definitions %}
@@ -259,6 +260,13 @@
                   {% endfor %}
                 </select>
               </form>
+            </td>
+            <td class="machine-col-tracked">
+              <div class="machine-hours-cell">
+                <div class="machine-hours-meta">
+                  <span class="machine-hours-value">{{ "%.1f"|format(project_job_quote_hours.get(job_label, 0.0)) }}h</span>
+                </div>
+              </div>
             </td>
             <td class="machine-col-tracked">
               <div class="machine-hours-cell">
@@ -316,7 +324,7 @@
           {% endfor %}
           {% if edit_machine_id == machine.id %}
           <tr class="edit-row">
-            <td colspan="{{ 7 + (milestone_definitions|length) }}">
+            <td colspan="{{ 8 + (milestone_definitions|length) }}">
               <form method="post" action="{{ url_for('update_machine', project_id=project.id, machine_id=machine.id) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="work_types_payload" class="machine-work-types-payload" value="[]">

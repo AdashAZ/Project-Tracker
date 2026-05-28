@@ -221,6 +221,98 @@ document.addEventListener("DOMContentLoaded", () => {
     const workTypeTemplate = document.getElementById("machine-work-type-template");
     const addProductLineBtn = document.getElementById("add-product-line-btn");
     const productLinesPayloadInput = document.getElementById("product_lines_payload");
+    const jobQuoteList = document.getElementById("job-quote-list");
+    const jobQuoteTemplate = document.getElementById("job-quote-row-template");
+    const addJobQuoteBtn = document.getElementById("add-job-quote-btn");
+    const jobQuotesPayloadInput = document.getElementById("job_quotes_payload");
+    const quotedHoursTotalInput = document.getElementById("quoted_hours_total");
+
+    const bindJobQuoteRow = (row) => {
+      const select = row.querySelector(".job-quote-work-type");
+      const otherInput = row.querySelector(".job-quote-other");
+      const removeBtn = row.querySelector("[data-remove-job-quote]");
+
+      const updateOtherVisibility = () => {
+        if (!select || !otherInput) return;
+        const showOther = select.value === "Other";
+        otherInput.style.display = showOther ? "" : "none";
+        if (!showOther) otherInput.value = "";
+      };
+
+      if (select) {
+        select.addEventListener("change", updateOtherVisibility);
+        updateOtherVisibility();
+      }
+
+      if (removeBtn) {
+        removeBtn.addEventListener("click", () => {
+          row.remove();
+          refreshJobQuoteRemoveButtons();
+        });
+      }
+    };
+
+    const refreshJobQuoteRemoveButtons = () => {
+      if (!jobQuoteList) return;
+      const rows = Array.from(jobQuoteList.querySelectorAll("[data-job-quote-row]"));
+      const showRemove = rows.length > 1;
+      rows.forEach((row) => {
+        const removeBtn = row.querySelector("[data-remove-job-quote]");
+        if (!removeBtn) return;
+        removeBtn.hidden = !showRemove;
+        removeBtn.disabled = !showRemove;
+      });
+    };
+
+    const addJobQuoteRow = () => {
+      if (!jobQuoteList || !jobQuoteTemplate) return;
+      const row = jobQuoteTemplate.content.firstElementChild.cloneNode(true);
+      jobQuoteList.appendChild(row);
+      bindJobQuoteRow(row);
+      refreshJobQuoteRemoveButtons();
+    };
+
+    const serializeJobQuoteRows = () => {
+      const payload = [];
+      const seen = new Set();
+      let hasError = false;
+      let total = 0;
+
+      if (!jobQuoteList) return { payload, hasError, total };
+
+      jobQuoteList.querySelectorAll("[data-job-quote-row]").forEach((row) => {
+        const hoursInput = row.querySelector(".job-quote-hours");
+        const select = row.querySelector(".job-quote-work-type");
+        const otherInput = row.querySelector(".job-quote-other");
+        const hoursRaw = (hoursInput?.value || "").trim();
+        const workType = (select?.value || "").trim();
+        const otherDescription = (otherInput?.value || "").trim();
+
+        if (!hoursRaw && !workType && !otherDescription) return;
+        const hours = Number(hoursRaw);
+
+        if (!workType || !Number.isFinite(hours) || hours < 0) {
+          hasError = true;
+          return;
+        }
+
+        if (workType === "Other" && !otherDescription) {
+          hasError = true;
+          return;
+        }
+
+        const key = `${workType}::${otherDescription}`;
+        if (seen.has(key)) {
+          hasError = true;
+          return;
+        }
+        seen.add(key);
+        total += hours;
+        payload.push({ work_type: workType, other_description: otherDescription, quoted_hours: hours });
+      });
+
+      return { payload, hasError, total };
+    };
 
     const addWorkTypeRow = (machineItem) => {
       if (!workTypeTemplate || !machineItem) return;
@@ -327,6 +419,15 @@ document.addEventListener("DOMContentLoaded", () => {
       addProductLineBtn.addEventListener("click", addProductLineItem);
     }
 
+    if (addJobQuoteBtn) {
+      addJobQuoteBtn.addEventListener("click", addJobQuoteRow);
+    }
+
+    if (jobQuoteList) {
+      jobQuoteList.querySelectorAll("[data-job-quote-row]").forEach((row) => bindJobQuoteRow(row));
+      refreshJobQuoteRemoveButtons();
+    }
+
     if (productLineList) {
       productLineList.querySelectorAll("[data-product-line-item]").forEach((item) => bindProductLineItem(item));
       refreshProductLineRemoveButtons();
@@ -336,6 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!productLineList || !productLinesPayloadInput) return;
 
       const productLinePayload = [];
+      const { payload: jobQuotePayload, hasError: jobQuoteError, total: quotedTotal } = serializeJobQuoteRows();
       let hasError = false;
       let hasProductLine = false;
 
@@ -393,7 +495,19 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      if (jobQuoteError) {
+        event.preventDefault();
+        alert("Each quoted-hours row must include valid hours and one unique job. Other requires a description.");
+        return;
+      }
+
       productLinesPayloadInput.value = JSON.stringify(productLinePayload);
+      if (jobQuotesPayloadInput) {
+        jobQuotesPayloadInput.value = JSON.stringify(jobQuotePayload);
+      }
+      if (quotedHoursTotalInput) {
+        quotedHoursTotalInput.value = quotedTotal.toString();
+      }
     });
   }
 

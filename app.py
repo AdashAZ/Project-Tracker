@@ -19,7 +19,7 @@ from sqlalchemy import text, case
 from urllib.parse import quote
 from markupsafe import Markup, escape
 
-from models import db, Project, ProductLine, Machine, MachineJob, TimeEntry, Comment, MachineWorkType
+from models import db, Project, ProductLine, ProjectJobQuote, Machine, MachineJob, TimeEntry, Comment, MachineWorkType
 from admin import admin_bp
 from sqlalchemy import case, desc
 
@@ -165,6 +165,55 @@ def create_app():
 
         if require_one and not parsed:
             return None, "At least one work type is required."
+
+        return parsed, None
+
+    def parse_job_quotes_payload(payload_raw: str | None):
+        if not payload_raw:
+            return [], None
+
+        try:
+            payload = json.loads(payload_raw)
+        except (TypeError, ValueError):
+            return None, "Invalid quoted-hours payload."
+
+        if not isinstance(payload, list):
+            return None, "Invalid quoted-hours payload."
+
+        parsed = []
+        seen = set()
+        for item in payload:
+            if not isinstance(item, dict):
+                return None, "Invalid quoted-hours payload."
+
+            work_type = (item.get("work_type") or "").strip()
+            other_description = (item.get("other_description") or "").strip()
+            hours_raw = item.get("quoted_hours")
+
+            if not work_type and hours_raw in (None, ""):
+                continue
+            if work_type not in WORK_TYPE_OPTIONS:
+                return None, "Select a valid job for each quoted-hours row."
+            if work_type == "Other" and not other_description:
+                return None, "Other quoted-hours rows require a description."
+
+            hours = parse_float_input(str(hours_raw) if hours_raw is not None else None)
+            if hours is None or hours < 0:
+                return None, "Quoted hours must be a valid non-negative number."
+
+            key = (work_type, other_description)
+            if key in seen:
+                return None, "Each quoted-hours job can only be entered once."
+            seen.add(key)
+
+            parsed.append(
+                {
+                    "work_type": work_type,
+                    "other_description": other_description or None,
+                    "label": format_work_type_label(work_type, other_description),
+                    "quoted_hours": hours,
+                }
+            )
 
         return parsed, None
 
@@ -532,6 +581,7 @@ def create_app():
             status = request.form.get("status") or "N/S"
             quoted_hours_total = request.form.get("quoted_hours_total") or "0"
             product_lines_payload = request.form.get("product_lines_payload")
+            job_quotes_payload = request.form.get("job_quotes_payload")
 
             if not customer:
                 flash("Customer is required.", "error")
@@ -542,10 +592,17 @@ def create_app():
                 flash("Invalid due date format.", "error")
                 return redirect(url_for("new_project"))
 
-            quoted_hours = parse_float_input(quoted_hours_total)
-            if quoted_hours is None:
-                flash("Quoted hours must be a valid number.", "error")
+            job_quotes, job_quotes_error = parse_job_quotes_payload(job_quotes_payload)
+            if job_quotes_error:
+                flash(job_quotes_error, "error")
                 return redirect(url_for("new_project"))
+
+            quoted_hours = sum(item["quoted_hours"] for item in job_quotes)
+            if not job_quotes:
+                quoted_hours = parse_float_input(quoted_hours_total)
+                if quoted_hours is None:
+                    flash("Quoted hours must be a valid number.", "error")
+                    return redirect(url_for("new_project"))
 
             product_line_specs, product_line_error = parse_new_project_product_lines_payload(product_lines_payload)
             if product_line_error:
@@ -564,6 +621,16 @@ def create_app():
             )
             db.session.add(project)
             db.session.flush()
+
+            for quote in job_quotes:
+                db.session.add(
+                    ProjectJobQuote(
+                        project_id=project.id,
+                        work_type=quote["work_type"],
+                        other_description=quote["other_description"],
+                        quoted_hours=quote["quoted_hours"],
+                    )
+                )
 
             for line_spec in product_line_specs:
                 product_line_item = ProductLine(project_id=project.id, name=line_spec["product_line_name"])
@@ -653,6 +720,10 @@ def create_app():
             for job in machine_jobs
         }
         machine_job_work_labels = {job.id: get_machine_job_label(job) for job in machine_jobs}
+        project_job_quote_hours = {
+            format_work_type_label(quote.work_type, quote.other_description): quote.quoted_hours or 0.0
+            for quote in project.job_quotes
+        }
         machine_job_groups = []
         machine_work_type_rows = {}
         machine_work_type_choices = {}
@@ -733,6 +804,7 @@ def create_app():
             machine_display_labels=machine_display_labels,
             machine_job_display_labels=machine_job_display_labels,
             machine_job_work_labels=machine_job_work_labels,
+            project_job_quote_hours=project_job_quote_hours,
             time_entries=time_entries,
             comments=comments,
             machine_hours=machine_hours,
