@@ -47,6 +47,12 @@ class Project(db.Model):
         lazy=True,
         cascade="all, delete-orphan"
     )
+    job_quotes = db.relationship(
+        "ProjectJobQuote",
+        backref="project",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
 
     @property
     def days_left(self) -> int | None:
@@ -112,6 +118,12 @@ class Machine(db.Model):
         lazy=True,
         cascade="all, delete-orphan"
     )
+    jobs = db.relationship(
+        "MachineJob",
+        backref="machine",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
 
     @property
     def balance_hours(self) -> float:
@@ -134,6 +146,20 @@ class ProductLine(db.Model):
         backref="product_line",
         lazy=True
     )
+
+
+class ProjectJobQuote(db.Model):
+    __tablename__ = "project_job_quotes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id"),
+        nullable=False
+    )
+    work_type = db.Column(db.String(50), nullable=False)
+    other_description = db.Column(db.String(255))
+    quoted_hours = db.Column(db.Float, default=0.0)
 
 
 class WorkType(db.Model):
@@ -180,11 +206,18 @@ class TimeEntry(db.Model):
         db.ForeignKey("machines.id"),
         nullable=True
     )
+    machine_job_id = db.Column(
+        db.Integer,
+        db.ForeignKey("machine_jobs.id"),
+        nullable=True
+    )
 
     date = db.Column(db.Date)
     work_type = db.Column(db.String(100))
     hours = db.Column(db.Float, nullable=False)
     notes = db.Column(db.Text)
+
+    machine_job = db.relationship("MachineJob", backref="time_entries")
 
 
 class Comment(db.Model):
@@ -219,3 +252,30 @@ class MachineWorkType(db.Model):
     )
     work_type = db.Column(db.String(50), nullable=False)
     other_description = db.Column(db.String(255))
+
+
+class MachineJob(db.Model):
+    __tablename__ = "machine_jobs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    machine_id = db.Column(
+        db.Integer,
+        db.ForeignKey("machines.id"),
+        nullable=False
+    )
+    work_type = db.Column(db.String(50), nullable=False)
+    other_description = db.Column(db.String(255))
+    status = db.Column(db.String(50), default="N/S")
+
+    report_cas_approval_date = db.Column(db.Date, nullable=True)
+    report_sent_customer_date = db.Column(db.Date, nullable=True)
+    report_sent_review_edb_date = db.Column(db.Date, nullable=True)
+    released_in_edb_date = db.Column(db.Date, nullable=True)
+    uploaded_s_drive_reports_date = db.Column(db.Date, nullable=True)
+    uploaded_s_drive_jsa_date = db.Column(db.Date, nullable=True)
+    uploaded_s_drive_photos_date = db.Column(db.Date, nullable=True)
+    uploaded_s_drive_vizio_date = db.Column(db.Date, nullable=True)
+    log_updated_date = db.Column(db.Date, nullable=True)
+
+    quoted_hours = db.Column(db.Float, default=0.0)
+    incurred_hours = db.Column(db.Float, default=0.0)

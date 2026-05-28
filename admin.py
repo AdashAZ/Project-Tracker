@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from flask_wtf.csrf import validate_csrf
 from werkzeug.exceptions import BadRequest
 from functools import wraps
-from models import db, Project, Machine, TimeEntry, Comment, ProductLine, WorkType, MilestoneDefinition
+from models import db, Project, Machine, TimeEntry, Comment, ProductLine, WorkType, MilestoneDefinition, MachineJob
 
 def csrf_exempt(f):
     """Decorator to exempt a route from CSRF protection"""
@@ -172,6 +172,7 @@ def export_to_csv():
             ('comments', Comment),
             ('product_lines', ProductLine),
             ('work_types', WorkType),
+            ('machine_jobs', MachineJob),
             ('milestone_definitions', MilestoneDefinition)
         ]
         

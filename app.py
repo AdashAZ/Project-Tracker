@@ -19,7 +19,7 @@ from sqlalchemy import text, case
 from urllib.parse import quote
 from markupsafe import Markup, escape
 
-from models import db, Project, ProductLine, Machine, TimeEntry, Comment, MachineWorkType
+from models import db, Project, ProductLine, Machine, MachineJob, TimeEntry, Comment, MachineWorkType
 from admin import admin_bp
 from sqlalchemy import case, desc
 
@@ -76,6 +76,14 @@ MACHINE_MILESTONE_DEFINITIONS = [
 MILESTONE_FIELD_BY_KEY = {item["key"]: item["field"] for item in MACHINE_MILESTONE_DEFINITIONS}
 
 
+def format_work_type_label_value(work_type: str | None, other_description: str | None = None):
+    if work_type == "Other":
+        cleaned_other = (other_description or "").strip()
+        if cleaned_other:
+            return f"Other - {cleaned_other}"
+    return work_type or ""
+
+
 def create_app():
     app = Flask(__name__)
 
@@ -91,10 +99,10 @@ def create_app():
     app.register_blueprint(admin_bp)
 
     with app.app_context():
-        # Ensure schema migrations run before any model queries
+        db.create_all()
         ensure_project_schema()
         ensure_machine_schema()
-        db.create_all()
+        ensure_machine_job_schema()
 
     def parse_date_input(value: str | None):
         if not value:
@@ -113,11 +121,7 @@ def create_app():
             return None
 
     def format_work_type_label(work_type: str, other_description: str | None = None):
-        if work_type == "Other":
-            cleaned_other = (other_description or "").strip()
-            if cleaned_other:
-                return f"Other - {cleaned_other}"
-        return work_type
+        return format_work_type_label_value(work_type, other_description)
 
     def parse_work_types_payload(payload_raw: str | None, require_one: bool = True):
         if not payload_raw:
@@ -228,6 +232,99 @@ def create_app():
             )
         return rows
 
+    def get_machine_job_label(job: MachineJob):
+        return format_work_type_label(job.work_type, job.other_description)
+
+    def get_or_create_machine_job(machine: Machine, work_type: str, other_description: str | None = None):
+        job = MachineJob.query.filter_by(
+            machine_id=machine.id,
+            work_type=work_type,
+            other_description=other_description or None,
+        ).first()
+        if job:
+            return job
+
+        job = MachineJob(
+            machine_id=machine.id,
+            work_type=work_type,
+            other_description=other_description or None,
+            status="N/S",
+        )
+        db.session.add(job)
+        db.session.flush()
+        return job
+
+    def get_or_create_machine_job_from_label(machine: Machine, label: str | None):
+        selected_label = (label or "").strip()
+        if not selected_label:
+            return None, "Select a valid job for the selected machine."
+
+        for job in machine.jobs:
+            if get_machine_job_label(job) == selected_label:
+                return job, None
+
+        if selected_label in WORK_TYPE_OPTIONS:
+            return get_or_create_machine_job(machine, selected_label, None), None
+        if selected_label.startswith("Other - "):
+            other_description = selected_label.replace("Other - ", "", 1).strip()
+            if other_description:
+                return get_or_create_machine_job(machine, "Other", other_description), None
+
+        return None, "Select a valid job for the selected machine."
+
+    def resolve_machine_job_id(job_id_raw: str | None, project_id: int):
+        if not job_id_raw:
+            return None, None, None
+        try:
+            job_id_int = int(job_id_raw)
+        except ValueError:
+            return None, None, "Invalid machine job selection."
+
+        job = (
+            MachineJob.query.join(Machine)
+            .filter(MachineJob.id == job_id_int, Machine.project_id == project_id)
+            .first()
+        )
+        if not job:
+            return None, None, "Invalid machine job selection."
+        return job.id, job, None
+
+    def machine_job_has_history(job: MachineJob):
+        if TimeEntry.query.filter_by(machine_job_id=job.id).count() > 0:
+            return True
+        if (job.quoted_hours or 0.0) > 0:
+            return True
+        if (job.incurred_hours or 0.0) > 0:
+            return True
+        if job.status and job.status != "N/S":
+            return True
+        return any(getattr(job, item["field"]) for item in MACHINE_MILESTONE_DEFINITIONS)
+
+    def sync_machine_jobs_from_work_types(machine: Machine, parsed_work_types):
+        desired_keys = {
+            (wt["work_type"], wt["other_description"] or None)
+            for wt in parsed_work_types
+        }
+
+        for job in list(machine.jobs):
+            key = (job.work_type, job.other_description or None)
+            if key in desired_keys:
+                continue
+            if machine_job_has_history(job):
+                return f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, hours, or milestone dates."
+            db.session.delete(job)
+
+        existing_keys = {
+            (job.work_type, job.other_description or None)
+            for job in machine.jobs
+        }
+        for wt in parsed_work_types:
+            key = (wt["work_type"], wt["other_description"] or None)
+            if key not in existing_keys:
+                get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
+
+        return None
+
     def resolve_machine_id(machine_id_raw: str | None, project_id: int):
         if not machine_id_raw:
             return None, None
@@ -290,10 +387,34 @@ def create_app():
                 machine_entry_counts[entry.machine_id] += 1
         return machine_hours, machine_entry_counts
 
+    def compute_machine_job_stats(machine_jobs, time_entries):
+        job_hours = {job.id: 0.0 for job in machine_jobs}
+        job_entry_counts = {job.id: 0 for job in machine_jobs}
+        for entry in time_entries:
+            if entry.machine_job_id in job_hours:
+                job_hours[entry.machine_job_id] += entry.hours or 0.0
+                job_entry_counts[entry.machine_job_id] += 1
+        for job in machine_jobs:
+            if job_entry_counts.get(job.id, 0) == 0 and (job.incurred_hours or 0.0) > 0:
+                job_hours[job.id] = job.incurred_hours or 0.0
+        return job_hours, job_entry_counts
+
+    def get_machine_job_milestone_view(machine_jobs):
+        milestone_values = {}
+        row_complete = {}
+
+        for job in machine_jobs:
+            per_job = {}
+            for item in MACHINE_MILESTONE_DEFINITIONS:
+                per_job[item["key"]] = getattr(job, item["field"])
+            milestone_values[job.id] = per_job
+            row_complete[job.id] = job.status == "Completed"
+
+        return milestone_values, row_complete
+
     def get_machine_milestone_view(machines):
         milestone_values = {}
         row_complete = {}
-        milestone_fields = [item["field"] for item in MACHINE_MILESTONE_DEFINITIONS]
 
         for machine in machines:
             per_machine = {}
@@ -467,6 +588,7 @@ def create_app():
                                 other_description=wt["other_description"],
                             )
                         )
+                        get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
 
             db.session.commit()
 
@@ -518,6 +640,20 @@ def create_app():
         project.incurred_hours_total = total_incurred
         machine_hours, machine_entry_counts = compute_machine_stats(machines, time_entries)
         machine_milestones, machine_row_complete = get_machine_milestone_view(machines)
+        machine_jobs = (
+            MachineJob.query.join(Machine)
+            .filter(Machine.project_id == project.id)
+            .order_by(Machine.product_line_id.asc(), Machine.id.asc(), MachineJob.id.asc())
+            .all()
+        )
+        machine_job_hours, machine_job_entry_counts = compute_machine_job_stats(machine_jobs, time_entries)
+        machine_job_milestones, machine_job_row_complete = get_machine_job_milestone_view(machine_jobs)
+        machine_job_display_labels = {
+            job.id: f"{job.machine.product_line.name if job.machine.product_line else 'General'} - {job.machine.machine_name} - {get_machine_job_label(job)}"
+            for job in machine_jobs
+        }
+        machine_job_work_labels = {job.id: get_machine_job_label(job) for job in machine_jobs}
+        machine_job_groups = []
         machine_work_type_rows = {}
         machine_work_type_choices = {}
         machine_work_type_hours = {}
@@ -564,6 +700,15 @@ def create_app():
         for line in product_lines:
             line_machines = [machine for machine in machines if machine.product_line_id == line.id]
             machine_groups.append({"product_line": line, "machines": line_machines})
+            grouped_machines = []
+            for machine in line_machines:
+                grouped_machines.append(
+                    {
+                        "machine": machine,
+                        "jobs": [job for job in machine_jobs if job.machine_id == machine.id],
+                    }
+                )
+            machine_job_groups.append({"product_line": line, "machines": grouped_machines})
 
         edit_machine_id = request.args.get("edit_machine", type=int)
         if edit_machine_id and not any(machine.id == edit_machine_id for machine in machines):
@@ -583,13 +728,21 @@ def create_app():
             product_lines=product_lines,
             machine_groups=machine_groups,
             machines=machines,
+            machine_jobs=machine_jobs,
+            machine_job_groups=machine_job_groups,
             machine_display_labels=machine_display_labels,
+            machine_job_display_labels=machine_job_display_labels,
+            machine_job_work_labels=machine_job_work_labels,
             time_entries=time_entries,
             comments=comments,
             machine_hours=machine_hours,
             machine_entry_counts=machine_entry_counts,
             machine_milestones=machine_milestones,
             machine_row_complete=machine_row_complete,
+            machine_job_hours=machine_job_hours,
+            machine_job_entry_counts=machine_job_entry_counts,
+            machine_job_milestones=machine_job_milestones,
+            machine_job_row_complete=machine_job_row_complete,
             machine_work_type_rows=machine_work_type_rows,
             machine_work_type_choices=machine_work_type_choices,
             machine_work_type_hours=machine_work_type_hours,
@@ -708,6 +861,7 @@ def create_app():
                     other_description=wt["other_description"],
                 )
             )
+            get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
 
         db.session.commit()
 
@@ -811,6 +965,11 @@ def create_app():
             flash("Invalid Log Updated date.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
+        sync_error = sync_machine_jobs_from_work_types(machine, parsed_work_types)
+        if sync_error:
+            flash(sync_error, "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
         machine.machine_name = machine_name
         machine.product_line_id = product_line_id_value
         machine.status = status
@@ -837,6 +996,7 @@ def create_app():
                     other_description=wt["other_description"],
                 )
             )
+            get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
 
         db.session.commit()
 
@@ -857,6 +1017,93 @@ def create_app():
         db.session.commit()
 
         flash("Machine status updated.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/status", methods=["POST"])
+    def update_machine_job_status(project_id, job_id):
+        project = Project.query.get_or_404(project_id)
+        job = (
+            MachineJob.query.join(Machine)
+            .filter(MachineJob.id == job_id, Machine.project_id == project.id)
+            .first_or_404()
+        )
+        new_status = request.form.get("status")
+
+        if new_status not in MACHINE_STATUS_OPTIONS:
+            flash("Invalid job status value.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        job.status = new_status
+        db.session.commit()
+
+        flash("Job status updated.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/set_today", methods=["POST"])
+    def set_machine_job_milestone_today(project_id, job_id, milestone_key):
+        project = Project.query.get_or_404(project_id)
+        job = (
+            MachineJob.query.join(Machine)
+            .filter(MachineJob.id == job_id, Machine.project_id == project.id)
+            .first_or_404()
+        )
+        field = MILESTONE_FIELD_BY_KEY.get(milestone_key)
+
+        if not field:
+            flash("Invalid milestone field.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        setattr(job, field, datetime.today().date())
+        db.session.commit()
+
+        flash("Job milestone updated to today.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/clear", methods=["POST"])
+    def clear_machine_job_milestone(project_id, job_id, milestone_key):
+        project = Project.query.get_or_404(project_id)
+        job = (
+            MachineJob.query.join(Machine)
+            .filter(MachineJob.id == job_id, Machine.project_id == project.id)
+            .first_or_404()
+        )
+        field = MILESTONE_FIELD_BY_KEY.get(milestone_key)
+
+        if not field:
+            flash("Invalid milestone field.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        setattr(job, field, None)
+        db.session.commit()
+
+        flash("Job milestone cleared.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/delete", methods=["POST"])
+    def delete_machine_job(project_id, job_id):
+        project = Project.query.get_or_404(project_id)
+        job = (
+            MachineJob.query.join(Machine)
+            .filter(MachineJob.id == job_id, Machine.project_id == project.id)
+            .first_or_404()
+        )
+
+        if machine_job_has_history(job):
+            flash(
+                f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, hours, or milestone dates.",
+                "error",
+            )
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        MachineWorkType.query.filter_by(
+            machine_id=job.machine_id,
+            work_type=job.work_type,
+            other_description=job.other_description,
+        ).delete()
+        db.session.delete(job)
+        db.session.commit()
+
+        flash("Unused machine job removed.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/machines/<int:machine_id>/milestones/<string:milestone_key>/set_today", methods=["POST"])
@@ -896,7 +1143,9 @@ def create_app():
         project = Project.query.get_or_404(project_id)
         machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
 
-        TimeEntry.query.filter_by(project_id=project.id, machine_id=machine.id).update({"machine_id": None})
+        TimeEntry.query.filter_by(project_id=project.id, machine_id=machine.id).update(
+            {"machine_id": None, "machine_job_id": None}
+        )
         Comment.query.filter_by(project_id=project.id, machine_id=machine.id).update({"machine_id": None})
         MachineWorkType.query.filter_by(machine_id=machine.id).delete()
 
@@ -929,14 +1178,19 @@ def create_app():
         work_type = request.form.get("work_type")
         hours_str = request.form.get("hours")
         machine_id_raw = request.form.get("machine_id")
+        machine_job_id_raw = request.form.get("machine_job_id")
         notes = request.form.get("notes")
-        has_machines = Machine.query.filter_by(project_id=project.id).count() > 0
+        has_jobs = (
+            MachineJob.query.join(Machine)
+            .filter(Machine.project_id == project.id)
+            .count()
+        ) > 0
 
         if not hours_str:
             flash("Hours are required.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
-        if has_machines and not machine_id_raw:
-            flash("Select a machine / asset # for this time entry.", "error")
+        if has_jobs and not machine_job_id_raw:
+            flash("Select a machine job for this time entry.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
 
         entry_date = parse_date_input(date_str)
@@ -949,23 +1203,23 @@ def create_app():
             flash("Hours must be a valid number.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
 
-        machine_id_value, machine_error = resolve_machine_id(machine_id_raw, project.id)
-        if machine_error:
-            flash(machine_error, "error")
+        machine_job_id_value, machine_job, machine_job_error = resolve_machine_job_id(machine_job_id_raw, project.id)
+        if machine_job_error:
+            flash(machine_job_error, "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
 
         machine_obj = None
-        if machine_id_value is not None:
-            machine_obj = Machine.query.filter_by(id=machine_id_value, project_id=project.id).first()
-            work_type_error = validate_and_sync_machine_work_type(machine_obj, work_type)
-            if work_type_error:
-                flash(work_type_error, "error")
-                return redirect(url_for("project_detail", project_id=project.id) + "#time-entries")
+        machine_id_value = None
+        if machine_job is not None:
+            machine_obj = machine_job.machine
+            machine_id_value = machine_job.machine_id
+            work_type = get_machine_job_label(machine_job)
 
         db.session.add(
             TimeEntry(
                 project_id=project.id,
                 machine_id=machine_id_value,
+                machine_job_id=machine_job_id_value,
                 date=entry_date,
                 work_type=work_type,
                 hours=hours,
@@ -973,6 +1227,8 @@ def create_app():
             )
         )
 
+        if machine_job and hours > 0 and machine_job.status == "N/S":
+            machine_job.status = "WIP"
         if machine_obj and hours > 0 and machine_obj.status == "N/S":
             machine_obj.status = "WIP"
 
@@ -990,14 +1246,19 @@ def create_app():
         work_type = request.form.get("work_type")
         hours_str = request.form.get("hours")
         machine_id_raw = request.form.get("machine_id")
+        machine_job_id_raw = request.form.get("machine_job_id")
         notes = request.form.get("notes")
-        has_machines = Machine.query.filter_by(project_id=project.id).count() > 0
+        has_jobs = (
+            MachineJob.query.join(Machine)
+            .filter(Machine.project_id == project.id)
+            .count()
+        ) > 0
 
         if not hours_str:
             flash("Hours are required.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
-        if has_machines and not machine_id_raw:
-            flash("Select a machine / asset # for this time entry.", "error")
+        if has_jobs and not machine_job_id_raw:
+            flash("Select a machine job for this time entry.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
 
         entry_date = parse_date_input(date_str)
@@ -1010,22 +1271,21 @@ def create_app():
             flash("Hours must be a valid number.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
 
-        machine_id_value, machine_error = resolve_machine_id(machine_id_raw, project.id)
-        if machine_error:
-            flash(machine_error, "error")
+        machine_job_id_value, machine_job, machine_job_error = resolve_machine_job_id(machine_job_id_raw, project.id)
+        if machine_job_error:
+            flash(machine_job_error, "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
 
-        if machine_id_value is not None:
-            machine_obj = Machine.query.filter_by(id=machine_id_value, project_id=project.id).first()
-            work_type_error = validate_and_sync_machine_work_type(machine_obj, work_type)
-            if work_type_error:
-                flash(work_type_error, "error")
-                return redirect(url_for("project_detail", project_id=project.id, edit_time_entry=entry.id) + "#time-entries")
+        machine_id_value = None
+        if machine_job is not None:
+            machine_id_value = machine_job.machine_id
+            work_type = get_machine_job_label(machine_job)
 
         entry.date = entry_date
         entry.work_type = work_type
         entry.hours = hours
         entry.machine_id = machine_id_value
+        entry.machine_job_id = machine_job_id_value
         entry.notes = notes
         db.session.commit()
 
@@ -1226,6 +1486,114 @@ def ensure_machine_schema():
             """
         )
     )
+
+    db.session.commit()
+
+
+def ensure_machine_job_schema():
+    """Create/backfill job-level tracking rows for machine work types."""
+    time_entry_cols = {
+        row[1]
+        for row in db.session.execute(text("PRAGMA table_info(time_entries)")).fetchall()
+    }
+    if "machine_job_id" not in time_entry_cols:
+        db.session.execute(text("ALTER TABLE time_entries ADD COLUMN machine_job_id INTEGER"))
+        db.session.commit()
+
+    machine_job_cols = {
+        row[1]
+        for row in db.session.execute(text("PRAGMA table_info(machine_jobs)")).fetchall()
+    }
+    if "incurred_hours" not in machine_job_cols:
+        db.session.execute(text("ALTER TABLE machine_jobs ADD COLUMN incurred_hours FLOAT DEFAULT 0.0"))
+        db.session.commit()
+
+    milestone_fields = [item["field"] for item in MACHINE_MILESTONE_DEFINITIONS]
+
+    def job_label(job):
+        return format_work_type_label_value(job.work_type, job.other_description)
+
+    def machine_work_type_specs(machine):
+        specs = []
+        seen = set()
+        for wt in sorted(machine.work_types, key=lambda item: item.id):
+            key = (wt.work_type, wt.other_description or None)
+            if key in seen:
+                continue
+            seen.add(key)
+            specs.append({"work_type": wt.work_type, "other_description": wt.other_description or None})
+
+        if not specs:
+            specs.append({"work_type": "RA", "other_description": None})
+            db.session.add(MachineWorkType(machine_id=machine.id, work_type="RA", other_description=None))
+
+        return specs
+
+    def get_or_create_job(machine, work_type, other_description=None):
+        existing = MachineJob.query.filter_by(
+            machine_id=machine.id,
+            work_type=work_type,
+            other_description=other_description or None,
+        ).first()
+        if existing:
+            return existing, False
+
+        job = MachineJob(
+            machine_id=machine.id,
+            work_type=work_type,
+            other_description=other_description or None,
+            status="N/S",
+        )
+        db.session.add(job)
+        db.session.flush()
+        return job, True
+
+    machines = Machine.query.order_by(Machine.id.asc()).all()
+    for machine in machines:
+        for spec in machine_work_type_specs(machine):
+            job, created = get_or_create_job(machine, spec["work_type"], spec["other_description"])
+            if created and job.work_type == "RA" and not job.other_description:
+                # Legacy machine-level tracking becomes the RA job baseline.
+                job.status = machine.status or job.status or "N/S"
+                job.quoted_hours = machine.quoted_hours or job.quoted_hours or 0.0
+                job.incurred_hours = machine.incurred_hours or job.incurred_hours or 0.0
+                for field in milestone_fields:
+                    if getattr(job, field, None) is None:
+                        setattr(job, field, getattr(machine, field, None))
+
+    db.session.flush()
+
+    jobs_by_machine = {}
+    for job in MachineJob.query.order_by(MachineJob.id.asc()).all():
+        jobs_by_machine.setdefault(job.machine_id, []).append(job)
+
+    for entry in TimeEntry.query.filter(TimeEntry.machine_id.isnot(None)).all():
+        if entry.machine_job_id:
+            continue
+
+        jobs = jobs_by_machine.get(entry.machine_id, [])
+        entry_label = (entry.work_type or "").strip() or "RA"
+        match = next((job for job in jobs if job_label(job) == entry_label), None)
+
+        if not match:
+            machine = Machine.query.get(entry.machine_id)
+            if not machine:
+                continue
+
+            if entry_label in WORK_TYPE_OPTIONS:
+                work_type = entry_label
+                other_description = None
+            elif entry_label.startswith("Other - "):
+                work_type = "Other"
+                other_description = entry_label.replace("Other - ", "", 1).strip() or None
+            else:
+                work_type = "Other"
+                other_description = entry_label
+
+            match, _ = get_or_create_job(machine, work_type, other_description)
+            jobs_by_machine.setdefault(machine.id, []).append(match)
+
+        entry.machine_job_id = match.id
 
     db.session.commit()
 

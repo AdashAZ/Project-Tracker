@@ -1318,6 +1318,20 @@ tbody tr.machine-status-stopped select {
   color: #5b6f88;
 }
 
+.job-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.2rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid rgba(31, 92, 170, 0.18);
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #1a3f6f;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
 .machine-work-types-editor {
   border: 1px dashed var(--line-strong);
   border-radius: var(--radius-sm);
