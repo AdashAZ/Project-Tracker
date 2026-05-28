@@ -264,7 +264,7 @@
             <td class="machine-col-tracked">
               <div class="machine-hours-cell">
                 <div class="machine-hours-meta">
-                  <span class="machine-hours-value">{{ "%.1f"|format(project_job_quote_hours.get(job_label, 0.0)) }}h</span>
+                  <span class="machine-hours-value">{{ "%.1f"|format(machine_job_quote_hours.get(job.id, 0.0)) }}h</span>
                 </div>
               </div>
             </td>

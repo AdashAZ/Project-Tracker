@@ -724,6 +724,16 @@ def create_app():
             format_work_type_label(quote.work_type, quote.other_description): quote.quoted_hours or 0.0
             for quote in project.job_quotes
         }
+        job_counts_by_label = {}
+        for label in machine_job_work_labels.values():
+            job_counts_by_label[label] = job_counts_by_label.get(label, 0) + 1
+        machine_job_quote_hours = {
+            job_id: (
+                project_job_quote_hours.get(label, 0.0) / job_counts_by_label[label]
+                if job_counts_by_label.get(label) else 0.0
+            )
+            for job_id, label in machine_job_work_labels.items()
+        }
         machine_job_groups = []
         machine_work_type_rows = {}
         machine_work_type_choices = {}
@@ -805,6 +815,7 @@ def create_app():
             machine_job_display_labels=machine_job_display_labels,
             machine_job_work_labels=machine_job_work_labels,
             project_job_quote_hours=project_job_quote_hours,
+            machine_job_quote_hours=machine_job_quote_hours,
             time_entries=time_entries,
             comments=comments,
             machine_hours=machine_hours,
