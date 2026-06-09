@@ -731,6 +731,48 @@ tbody tr.machine-status-stopped select {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
+.dashboard-job-progress-stack {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.dashboard-job-progress-item {
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.3rem 0.45rem 0.4rem;
+  border-radius: 10px;
+  background: rgba(235, 242, 252, 0.9);
+  border: 1px solid rgba(109, 137, 176, 0.16);
+}
+
+.dashboard-job-progress-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.dashboard-job-progress-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #294266;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-job-progress-meta {
+  font-size: 0.75rem;
+  color: #5b6d86;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dash-progress-wrap-job {
+  min-width: 0;
+  gap: 0.45rem;
+}
+
 /* Dashboard controls */
 .dashboard-controls {
   display: flex;
@@ -1061,6 +1103,45 @@ tbody tr.machine-status-stopped select {
 .hero-health-item strong {
   color: #fff;
   font-size: 1rem;
+}
+
+.project-expenses-card {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(188, 212, 237, 0.32);
+  background-color: rgba(255, 255, 255, 0.07);
+}
+
+.project-expenses-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #c9def9;
+  font-weight: 700;
+}
+
+.project-expenses-date {
+  color: #f2f7ff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.project-expenses-date.is-set {
+  color: #e7f9eb;
+}
+
+.project-expenses-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.project-expenses-actions form {
+  margin: 0;
 }
 
 .hero-actions {
@@ -1462,18 +1543,144 @@ tbody tr.machine-status-stopped select {
 }
 
 .milestone-cell {
-  min-width: 180px;
+  min-width: 0;
+}
+
+#machines table {
+  table-layout: fixed;
+  min-width: 0;
+}
+
+#machines .table-wrap {
+  overflow-x: hidden;
+}
+
+#machines th:nth-child(1),
+#machines td:nth-child(1) {
+  width: 12%;
+}
+
+#machines th:nth-child(2),
+#machines td:nth-child(2) {
+  width: 15%;
+}
+
+#machines th:nth-child(3),
+#machines td:nth-child(3) {
+  width: 8%;
+}
+
+#machines th:nth-child(4),
+#machines td:nth-child(4) {
+  width: 10%;
+}
+
+#machines th:nth-child(5),
+#machines td:nth-child(5),
+#machines th:nth-child(6),
+#machines td:nth-child(6) {
+  width: 7%;
+}
+
+#machines th:nth-child(7),
+#machines td:nth-child(7) {
+  width: 5%;
+}
+
+#machines th:nth-child(8),
+#machines td:nth-child(8) {
+  width: 36%;
+}
+
+#machines th:nth-child(9),
+#machines td:nth-child(9) {
+  width: 6%;
+}
+
+#machines td {
+  word-break: break-word;
+}
+
+#machines .job-pill {
+  display: inline-flex;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.machine-name-stack {
+  display: grid;
+  gap: 0.12rem;
+  align-items: start;
+}
+
+.machine-name-value {
+  font-weight: 800;
+  color: #173f73;
+  line-height: 1.15;
+}
+
+.machine-version-tag {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  background: #edf4ff;
+  border: 1px solid #bfd1e9;
+  color: #2d5b91;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
 }
 
 .milestone-date {
-  font-size: 0.84rem;
-  margin-bottom: 0.25rem;
+  font-size: 0.72rem;
+  margin-bottom: 0;
+  line-height: 1.15;
 }
 
 .milestone-actions {
   display: flex;
   gap: 0.25rem;
   flex-wrap: wrap;
+}
+
+.milestone-actions-compact {
+  gap: 0.18rem;
+}
+
+.milestone-actions-compact .btn-mini {
+  padding-inline: 0.34rem;
+  padding-block: 0.12rem;
+  font-size: 0.68rem;
+}
+
+.milestone-panel-cell {
+  padding: 0.2rem 0.25rem !important;
+}
+
+.milestone-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.16rem 0.36rem;
+}
+
+.milestone-panel-item {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.08rem 0.03rem 0.1rem;
+  min-width: 0;
+  display: grid;
+  gap: 0.08rem;
+}
+
+.milestone-panel-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #355071;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
 }
 
 .btn-mini {
@@ -1486,6 +1693,101 @@ tbody tr.machine-status-stopped select {
 .milestone-done {
   background-color: #dff3e2;
   border-left: 3px solid var(--success);
+}
+
+.milestone-panel-item.milestone-done {
+  color: #1d5f3f;
+}
+
+.milestone-panel-item.milestone-done .milestone-date {
+  color: #1d5f3f;
+  font-weight: 800;
+}
+
+.milestone-panel-item .milestone-date {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.08rem 0.28rem;
+  border-radius: 999px;
+  background: rgba(227, 244, 232, 0.58);
+  color: #31506f;
+}
+
+.milestone-inline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.24rem;
+  min-width: 0;
+}
+
+.milestone-panel-item .milestone-actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.milestone-panel-item .milestone-actions .btn-mini {
+  white-space: nowrap;
+}
+
+.milestone-panel-item .milestone-date {
+  flex-shrink: 0;
+}
+
+.machine-version-subrow td {
+  background: linear-gradient(180deg, #f9fcff, #f1f7fd) !important;
+  border-top: 0;
+  padding-top: 0.15rem;
+  padding-bottom: 0.35rem;
+}
+
+.machine-version-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border-top: 1px dashed #d4dfed;
+  padding-top: 0.35rem;
+}
+
+.machine-version-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.machine-version-strip-label {
+  display: inline-flex;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #1d4f8e, #163e70);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.machine-version-strip-meta {
+  font-size: 0.74rem;
+  color: #58708d;
+  font-variant-numeric: tabular-nums;
+}
+
+.machine-version-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.machine-version-strip-note {
+  font-size: 0.72rem;
+  color: #58708d;
+  font-weight: 700;
 }
 
 .machine-edit-grid {

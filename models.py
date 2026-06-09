@@ -17,6 +17,7 @@ class Project(db.Model):
     edb_number = db.Column(db.String(100))
 
     due_date = db.Column(db.Date)
+    expenses_submitted_date = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(50), default="N/S")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -85,6 +86,8 @@ class Machine(db.Model):
 
     machine_name = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(50), default="N/S")
+    parent_machine_id = db.Column(db.Integer, db.ForeignKey("machines.id"), nullable=True)
+    version_number = db.Column(db.Integer, default=1)
 
     report_cas_approval_date = db.Column(db.Date, nullable=True)
     report_sent_customer_date = db.Column(db.Date, nullable=True)
@@ -124,10 +127,22 @@ class Machine(db.Model):
         lazy=True,
         cascade="all, delete-orphan"
     )
+    parent_machine = db.relationship(
+        "Machine",
+        remote_side=[id],
+        foreign_keys=[parent_machine_id],
+        backref="versions",
+        lazy=True,
+    )
 
     @property
     def balance_hours(self) -> float:
         return (self.quoted_hours or 0.0) - (self.incurred_hours or 0.0)
+
+    @property
+    def version_label(self) -> str:
+        version_num = self.version_number or 1
+        return f"V{version_num}.0"
 
 
 class ProductLine(db.Model):

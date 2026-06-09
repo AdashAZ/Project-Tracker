@@ -110,6 +110,24 @@
           </div>
           <span class="dash-progress-text">{{ "%.1f"|format(pct_raw) }}%</span>
         </div>
+        {% if project.job_progress_rows %}
+        <div class="dashboard-job-progress-stack">
+          {% for job in project.job_progress_rows %}
+          <div class="dashboard-job-progress-item">
+            <div class="dashboard-job-progress-label-row">
+              <span class="dashboard-job-progress-label">{{ job.label }}</span>
+              <span class="dashboard-job-progress-meta">{{ "%.1f"|format(job.incurred_hours) }} / {{ "%.1f"|format(job.quoted_hours) }}h</span>
+            </div>
+            <div class="dash-progress-wrap dash-progress-wrap-job">
+              <div class="dash-progress-track">
+                <div class="dash-progress-fill {{ job.pct_class }}" style="width: {{ "%.1f"|format(job.pct_fill) }}%" data-completed="{{ 'true' if job.is_complete else 'false' }}"></div>
+              </div>
+              <span class="dash-progress-text">{{ "%.1f"|format(job.pct_raw) }}%</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
       </td>
     </tr>
     {% endfor %}

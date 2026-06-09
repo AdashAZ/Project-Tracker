@@ -5,6 +5,7 @@ import re
 import os
 import subprocess
 import secrets
+from collections import defaultdict
 
 from flask import (
     Flask,
@@ -82,6 +83,23 @@ def format_work_type_label_value(work_type: str | None, other_description: str |
         if cleaned_other:
             return f"Other - {cleaned_other}"
     return work_type or ""
+
+
+def get_machine_version_label_value(machine: Machine | None):
+    if not machine:
+        return "V1.0"
+    version_number = getattr(machine, "version_number", None) or 1
+    return f"V{version_number}.0"
+
+
+def get_progress_bucket(pct_raw: float) -> str:
+    if pct_raw <= 21.0:
+        return "dash-progress-red"
+    if pct_raw <= 61.0:
+        return "dash-progress-amber"
+    if pct_raw <= 99.9:
+        return "dash-progress-yellow"
+    return "dash-progress-green"
 
 
 def create_app():
@@ -216,6 +234,40 @@ def create_app():
             )
 
         return parsed, None
+
+    def build_project_job_progress_rows(project: Project, time_entries):
+        if not project.job_quotes:
+            return []
+
+        rows = []
+        ordered_quotes = sorted(project.job_quotes, key=lambda quote: quote.id)
+        for quote in ordered_quotes:
+            quoted_hours = quote.quoted_hours or 0.0
+            if quoted_hours <= 0:
+                continue
+
+            label = format_work_type_label(quote.work_type, quote.other_description)
+            incurred_hours = sum(
+                (entry.hours or 0.0)
+                for entry in time_entries
+                if (entry.work_type or "").strip() == label
+            )
+            pct_raw = (incurred_hours / quoted_hours * 100.0) if quoted_hours else 0.0
+            pct_fill = 100.0 if pct_raw > 100 else (0.0 if pct_raw < 0 else pct_raw)
+
+            rows.append(
+                {
+                    "label": label,
+                    "quoted_hours": quoted_hours,
+                    "incurred_hours": incurred_hours,
+                    "pct_raw": pct_raw,
+                    "pct_fill": pct_fill,
+                    "pct_class": get_progress_bucket(pct_raw),
+                    "is_complete": pct_raw >= 100.0,
+                }
+            )
+
+        return rows
 
     def parse_new_project_product_lines_payload(payload_raw: str | None):
         if not payload_raw:
@@ -474,6 +526,72 @@ def create_app():
 
         return milestone_values, row_complete
 
+    def get_machine_version_root(machine: Machine):
+        return machine.parent_machine_id or machine.id
+
+    def machine_version_is_copy_ready(machine: Machine, machine_jobs_for_machine, machine_job_row_complete_map, machine_job_milestones_map):
+        if not machine_jobs_for_machine:
+            return False
+        return any(machine_job_row_complete_map.get(job.id) for job in machine_jobs_for_machine)
+
+    def build_machine_version_groups(product_lines, machines, machine_jobs, machine_job_row_complete_map, machine_job_milestones_map):
+        machines_by_id = {machine.id: machine for machine in machines}
+        versions_by_root = defaultdict(list)
+        roots_by_id = {}
+
+        for machine in machines:
+            root_id = get_machine_version_root(machine)
+            root_machine = machines_by_id.get(root_id)
+            if root_machine is None:
+                root_machine = machine
+                root_id = machine.id
+                machine.parent_machine_id = None
+            roots_by_id[root_id] = root_machine
+            versions_by_root[root_id].append(machine)
+
+        for version_list in versions_by_root.values():
+            version_list.sort(key=lambda item: ((item.version_number or 1), item.id))
+
+        machine_jobs_by_machine = defaultdict(list)
+        for job in machine_jobs:
+            machine_jobs_by_machine[job.machine_id].append(job)
+
+        family_map = defaultdict(list)
+        for line in product_lines:
+            line_families = []
+            line_machines = [machine for machine in machines if machine.product_line_id == line.id and machine.parent_machine_id is None]
+            line_machines.sort(key=lambda item: (item.id,))
+            for root_machine in line_machines:
+                versions = versions_by_root.get(root_machine.id, [root_machine])
+                version_blocks = []
+                for version_machine in versions:
+                    version_jobs = machine_jobs_by_machine.get(version_machine.id, [])
+                    version_blocks.append(
+                        {
+                            "machine": version_machine,
+                            "jobs": version_jobs,
+                            "is_ready_for_copy": machine_version_is_copy_ready(
+                                version_machine,
+                                version_jobs,
+                                machine_job_row_complete_map,
+                                machine_job_milestones_map,
+                            ),
+                            "has_next_version": any(
+                                child.version_number == ((version_machine.version_number or 1) + 1)
+                                for child in versions
+                            ),
+                        }
+                    )
+                line_families.append(
+                    {
+                        "root_machine": root_machine,
+                        "versions": version_blocks,
+                    }
+                )
+            family_map[line.id] = line_families
+
+        return family_map
+
 
     def linkify_comment_text(comment_text: str):
         # Match Windows absolute paths like C:\Folder\Subfolder\File
@@ -546,8 +664,10 @@ def create_app():
         ).all()
 
         for project in projects:
-            total_incurred = sum(te.hours for te in project.time_entries)
+            project_time_entries = list(project.time_entries)
+            total_incurred = sum(te.hours or 0.0 for te in project_time_entries)
             project.incurred_hours_total = total_incurred
+            project.job_progress_rows = build_project_job_progress_rows(project, project_time_entries)
 
         return render_template("dashboard.html", projects=projects, status_filter=status_filter)
     @app.route("/open-path")
@@ -715,24 +835,28 @@ def create_app():
         )
         machine_job_hours, machine_job_entry_counts = compute_machine_job_stats(machine_jobs, time_entries)
         machine_job_milestones, machine_job_row_complete = get_machine_job_milestone_view(machine_jobs)
+        machine_jobs_by_machine_id = defaultdict(list)
+        for job in machine_jobs:
+            machine_jobs_by_machine_id[job.machine_id].append(job)
         machine_job_display_labels = {
-            job.id: f"{job.machine.product_line.name if job.machine.product_line else 'General'} - {job.machine.machine_name} - {get_machine_job_label(job)}"
+            job.id: f"{get_machine_version_label_value(job.machine)} - {job.machine.product_line.name if job.machine.product_line else 'General'} - {job.machine.machine_name} - {get_machine_job_label(job)}"
             for job in machine_jobs
         }
         machine_job_work_labels = {job.id: get_machine_job_label(job) for job in machine_jobs}
+        version_backfilled = False
+        for machine in machines:
+            if not machine.version_number:
+                machine.version_number = 1
+                version_backfilled = True
+            if not machine.version:
+                machine.version = machine.version_label
+                version_backfilled = True
+        if version_backfilled:
+            db.session.commit()
+
         project_job_quote_hours = {
             format_work_type_label(quote.work_type, quote.other_description): quote.quoted_hours or 0.0
             for quote in project.job_quotes
-        }
-        job_counts_by_label = {}
-        for label in machine_job_work_labels.values():
-            job_counts_by_label[label] = job_counts_by_label.get(label, 0) + 1
-        machine_job_quote_hours = {
-            job_id: (
-                project_job_quote_hours.get(label, 0.0) / job_counts_by_label[label]
-                if job_counts_by_label.get(label) else 0.0
-            )
-            for job_id, label in machine_job_work_labels.items()
         }
         machine_job_groups = []
         machine_work_type_rows = {}
@@ -740,6 +864,31 @@ def create_app():
         machine_work_type_hours = {}
         machine_display_labels = {}
         machine_groups = []
+        machine_version_groups = build_machine_version_groups(
+            product_lines,
+            machines,
+            machine_jobs,
+            machine_job_row_complete,
+            machine_job_milestones,
+        )
+
+        label_family_counts = {}
+        for line_families in machine_version_groups.values():
+            for family in line_families:
+                family_labels = set()
+                for version_block in family["versions"]:
+                    for job in version_block["jobs"]:
+                        family_labels.add(machine_job_work_labels.get(job.id, get_machine_job_label(job)))
+                for label in family_labels:
+                    label_family_counts[label] = label_family_counts.get(label, 0) + 1
+
+        machine_job_quote_hours = {
+            job_id: (
+                project_job_quote_hours.get(label, 0.0) / label_family_counts[label]
+                if label_family_counts.get(label) else 0.0
+            )
+            for job_id, label in machine_job_work_labels.items()
+        }
 
         for machine in machines:
             work_type_rows = get_machine_work_type_rows(machine)
@@ -748,7 +897,7 @@ def create_app():
             labels = [item["label"] for item in work_type_rows]
             machine_work_type_choices[machine.id] = labels
             product_line_name = machine.product_line.name if machine.product_line else "General"
-            machine_display_labels[machine.id] = f"{product_line_name} - {machine.machine_name}"
+            machine_display_labels[machine.id] = f"{get_machine_version_label_value(machine)} - {product_line_name} - {machine.machine_name}"
 
             hours_by_label = []
             for label in labels:
@@ -779,17 +928,12 @@ def create_app():
             machine_work_type_hours[machine.id] = hours_by_label
 
         for line in product_lines:
-            line_machines = [machine for machine in machines if machine.product_line_id == line.id]
-            machine_groups.append({"product_line": line, "machines": line_machines})
-            grouped_machines = []
-            for machine in line_machines:
-                grouped_machines.append(
-                    {
-                        "machine": machine,
-                        "jobs": [job for job in machine_jobs if job.machine_id == machine.id],
-                    }
-                )
-            machine_job_groups.append({"product_line": line, "machines": grouped_machines})
+            line_root_machines = [
+                machine for machine in machines
+                if machine.product_line_id == line.id and machine.parent_machine_id is None
+            ]
+            line_root_machines.sort(key=lambda item: item.id)
+            machine_groups.append({"product_line": line, "machines": line_root_machines})
 
         edit_machine_id = request.args.get("edit_machine", type=int)
         if edit_machine_id and not any(machine.id == edit_machine_id for machine in machines):
@@ -826,9 +970,11 @@ def create_app():
             machine_job_entry_counts=machine_job_entry_counts,
             machine_job_milestones=machine_job_milestones,
             machine_job_row_complete=machine_job_row_complete,
+            machine_jobs_by_machine_id=machine_jobs_by_machine_id,
             machine_work_type_rows=machine_work_type_rows,
             machine_work_type_choices=machine_work_type_choices,
             machine_work_type_hours=machine_work_type_hours,
+            machine_version_groups=machine_version_groups,
             machine_status_options=MACHINE_STATUS_OPTIONS,
             work_type_options=WORK_TYPE_OPTIONS,
             milestone_definitions=MACHINE_MILESTONE_DEFINITIONS,
@@ -931,6 +1077,8 @@ def create_app():
             product_line_id=product_line_id_value,
             machine_name=machine_name,
             status="N/S",
+            version_number=1,
+            version="V1.0",
         )
         db.session.add(machine)
         db.session.flush()
@@ -961,7 +1109,7 @@ def create_app():
         status = request.form.get("status")
         quoted_hours_raw = request.form.get("quoted_hours")
         incurred_hours_raw = request.form.get("incurred_hours")
-        version = (request.form.get("version") or "").strip() or None
+        version = (request.form.get("version") or "").strip() or machine.version or machine.version_label
         nctp = request.form.get("nctp") == "on"
 
         cas_approval_raw = request.form.get("report_cas_approval_date")
@@ -1226,6 +1374,10 @@ def create_app():
         project = Project.query.get_or_404(project_id)
         machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
 
+        if machine.versions:
+            flash("Remove the machine versions first before deleting the base machine.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
         TimeEntry.query.filter_by(project_id=project.id, machine_id=machine.id).update(
             {"machine_id": None, "machine_job_id": None}
         )
@@ -1236,6 +1388,80 @@ def create_app():
         db.session.commit()
 
         flash("Machine / Asset # deleted.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+    @app.route("/projects/<int:project_id>/machines/<int:machine_id>/versions/create", methods=["POST"])
+    def create_machine_version(project_id, machine_id):
+        project = Project.query.get_or_404(project_id)
+        source_machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+
+        source_jobs = (
+            MachineJob.query.filter_by(machine_id=source_machine.id)
+            .order_by(MachineJob.id.asc())
+            .all()
+        )
+        source_machine_jobs_ready = machine_version_is_copy_ready(
+            source_machine,
+            source_jobs,
+            {job.id: (job.status == "Completed") for job in source_jobs},
+            {},
+        )
+        if not source_machine_jobs_ready:
+            flash("Complete all milestones and statuses before creating the next version.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        family_root_machine = source_machine.parent_machine or source_machine
+        family_versions = [family_root_machine] + sorted(
+            list(family_root_machine.versions),
+            key=lambda item: ((item.version_number or 1), item.id),
+        )
+
+        next_version_number = (source_machine.version_number or 1) + 1
+        if next_version_number > 3:
+            flash("Only V1.0 through V3.0 are supported for machine versions.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        if any((machine.version_number or 1) == next_version_number for machine in family_versions):
+            flash(f"V{next_version_number}.0 already exists for this machine.", "error")
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+        clone = Machine(
+            project_id=project.id,
+            product_line_id=source_machine.product_line_id,
+            machine_name=source_machine.machine_name,
+            status="N/S",
+            parent_machine_id=family_root_machine.id,
+            version_number=next_version_number,
+            version=f"V{next_version_number}.0",
+            quoted_hours=source_machine.quoted_hours or 0.0,
+            incurred_hours=0.0,
+            nctp=source_machine.nctp,
+        )
+        db.session.add(clone)
+        db.session.flush()
+
+        for wt in source_machine.work_types:
+            db.session.add(
+                MachineWorkType(
+                    machine_id=clone.id,
+                    work_type=wt.work_type,
+                    other_description=wt.other_description,
+                )
+            )
+
+        for job in source_jobs:
+            cloned_job = MachineJob(
+                machine_id=clone.id,
+                work_type=job.work_type,
+                other_description=job.other_description,
+                status="N/S",
+                quoted_hours=job.quoted_hours or 0.0,
+                incurred_hours=0.0,
+            )
+            db.session.add(cloned_job)
+
+        db.session.commit()
+        flash(f"Created V{next_version_number}.0 for {source_machine.machine_name}.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/status", methods=["POST"])
@@ -1252,6 +1478,22 @@ def create_app():
 
         flash("Project status updated.", "success")
         return redirect(url_for("dashboard"))
+
+    @app.route("/projects/<int:project_id>/expenses-submitted/set_today", methods=["POST"])
+    def set_project_expenses_submitted_today(project_id):
+        project = Project.query.get_or_404(project_id)
+        project.expenses_submitted_date = datetime.today().date()
+        db.session.commit()
+        flash("Expenses Submitted set to today.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#project-header")
+
+    @app.route("/projects/<int:project_id>/expenses-submitted/clear", methods=["POST"])
+    def clear_project_expenses_submitted(project_id):
+        project = Project.query.get_or_404(project_id)
+        project.expenses_submitted_date = None
+        db.session.commit()
+        flash("Expenses Submitted cleared.", "success")
+        return redirect(url_for("project_detail", project_id=project.id) + "#project-header")
 
     @app.route("/projects/<int:project_id>/time_entries", methods=["POST"])
     def add_time_entry(project_id):
@@ -1396,6 +1638,7 @@ def create_app():
         na_number = request.form.get("na_number")
         edb_number = request.form.get("edb_number")
         due_date_str = request.form.get("due_date")
+        expenses_submitted_date_str = request.form.get("expenses_submitted_date")
         quoted_hours_total = request.form.get("quoted_hours_total")
         status = request.form.get("status")
 
@@ -1418,6 +1661,15 @@ def create_app():
             project.due_date = parsed_due
         else:
             project.due_date = None
+
+        if expenses_submitted_date_str:
+            parsed_expenses = parse_date_input(expenses_submitted_date_str)
+            if parsed_expenses is None:
+                flash("Invalid Expenses Submitted date format.", "error")
+                return redirect(url_for("project_detail", project_id=project.id))
+            project.expenses_submitted_date = parsed_expenses
+        else:
+            project.expenses_submitted_date = None
 
         if quoted_hours_total is not None and quoted_hours_total != "":
             parsed_quoted = parse_float_input(quoted_hours_total)
@@ -1511,6 +1763,8 @@ def ensure_machine_schema():
 
     required_cols = {
         "status": "TEXT DEFAULT 'N/S'",
+        "parent_machine_id": "INTEGER",
+        "version_number": "INTEGER DEFAULT 1",
         "report_cas_approval_date": "DATE",
         "report_sent_customer_date": "DATE",
         "report_sent_review_edb_date": "DATE",
@@ -1526,6 +1780,29 @@ def ensure_machine_schema():
     for col_name, col_def in required_cols.items():
         if col_name not in existing_cols:
             db.session.execute(text(f"ALTER TABLE machines ADD COLUMN {col_name} {col_def}"))
+            db.session.commit()
+
+    if "version_number" not in existing_cols:
+        db.session.execute(text("UPDATE machines SET version_number = 1 WHERE version_number IS NULL OR version_number = 0"))
+        db.session.commit()
+
+    machines_without_version = Machine.query.filter(
+        (Machine.version.is_(None)) | (Machine.version == "")
+    ).all()
+    for machine in machines_without_version:
+        machine.version_number = machine.version_number or 1
+        machine.version = machine.version_label
+
+    machines_without_version_number = Machine.query.filter(
+        (Machine.version_number.is_(None)) | (Machine.version_number == 0)
+    ).all()
+    for machine in machines_without_version_number:
+        machine.version_number = 1
+        if not machine.version:
+            machine.version = machine.version_label
+
+    if machines_without_version or machines_without_version_number:
+        db.session.commit()
 
     # Backfill Product / Line structure for legacy projects and machines.
     projects = Project.query.order_by(Project.id.asc()).all()
@@ -1691,6 +1968,10 @@ def ensure_project_schema():
     # Add created_at column if it doesn't exist
     if "created_at" not in existing_cols:
         db.session.execute(text("ALTER TABLE projects ADD COLUMN created_at DATETIME"))
+        db.session.commit()
+
+    if "expenses_submitted_date" not in existing_cols:
+        db.session.execute(text("ALTER TABLE projects ADD COLUMN expenses_submitted_date DATE"))
         db.session.commit()
 
     # Set created_at for existing projects that don't have it
