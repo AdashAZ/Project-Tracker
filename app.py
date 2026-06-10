@@ -336,11 +336,24 @@ def create_app():
     def get_machine_job_label(job: MachineJob):
         return format_work_type_label(job.work_type, job.other_description)
 
+    def get_machine_job_version_label_value(job: MachineJob | None):
+        if not job:
+            return "V1.0"
+        version_num = getattr(job, "version_number", None) or 1
+        return f"V{version_num}.0"
+
+    def get_machine_job_version_root(job: MachineJob):
+        root = job
+        while getattr(root, "parent_job", None) is not None:
+            root = root.parent_job
+        return root
+
     def get_or_create_machine_job(machine: Machine, work_type: str, other_description: str | None = None):
         job = MachineJob.query.filter_by(
             machine_id=machine.id,
             work_type=work_type,
             other_description=other_description or None,
+            parent_job_id=None,
         ).first()
         if job:
             return job
@@ -350,6 +363,7 @@ def create_app():
             work_type=work_type,
             other_description=other_description or None,
             status="N/S",
+            version_number=1,
         )
         db.session.add(job)
         db.session.flush()
@@ -361,6 +375,8 @@ def create_app():
             return None, "Select a valid job for the selected machine."
 
         for job in machine.jobs:
+            if job.parent_job_id:
+                continue
             if get_machine_job_label(job) == selected_label:
                 return job, None
 
@@ -391,6 +407,9 @@ def create_app():
         return job.id, job, None
 
     def machine_job_has_history(job: MachineJob):
+        if getattr(job, "versions", None):
+            if len(job.versions) > 0:
+                return True
         if TimeEntry.query.filter_by(machine_job_id=job.id).count() > 0:
             return True
         if (job.quoted_hours or 0.0) > 0:
@@ -407,7 +426,9 @@ def create_app():
             for wt in parsed_work_types
         }
 
-        for job in list(machine.jobs):
+        base_jobs = [job for job in machine.jobs if not job.parent_job_id]
+
+        for job in list(base_jobs):
             key = (job.work_type, job.other_description or None)
             if key in desired_keys:
                 continue
@@ -417,7 +438,7 @@ def create_app():
 
         existing_keys = {
             (job.work_type, job.other_description or None)
-            for job in machine.jobs
+            for job in base_jobs
         }
         for wt in parsed_work_types:
             key = (wt["work_type"], wt["other_description"] or None)
@@ -827,32 +848,38 @@ def create_app():
         project.incurred_hours_total = total_incurred
         machine_hours, machine_entry_counts = compute_machine_stats(machines, time_entries)
         machine_milestones, machine_row_complete = get_machine_milestone_view(machines)
-        machine_jobs = (
+        machine_jobs = list(
             MachineJob.query.join(Machine)
             .filter(Machine.project_id == project.id)
-            .order_by(Machine.product_line_id.asc(), Machine.id.asc(), MachineJob.id.asc())
             .all()
+        )
+        machine_jobs.sort(
+            key=lambda job: (
+                job.machine.product_line_id or 0,
+                job.machine_id,
+                job.work_type or "",
+                job.other_description or "",
+                job.version_number or 1,
+                job.id,
+            )
         )
         machine_job_hours, machine_job_entry_counts = compute_machine_job_stats(machine_jobs, time_entries)
         machine_job_milestones, machine_job_row_complete = get_machine_job_milestone_view(machine_jobs)
+        machine_version_groups = build_machine_version_groups(
+            product_lines,
+            machines,
+            machine_jobs,
+            machine_job_row_complete,  # row complete map
+            machine_job_milestones  # milestones map
+        )
         machine_jobs_by_machine_id = defaultdict(list)
         for job in machine_jobs:
             machine_jobs_by_machine_id[job.machine_id].append(job)
         machine_job_display_labels = {
-            job.id: f"{get_machine_version_label_value(job.machine)} - {job.machine.product_line.name if job.machine.product_line else 'General'} - {job.machine.machine_name} - {get_machine_job_label(job)}"
+            job.id: f"{get_machine_job_version_label_value(job)} - {job.machine.product_line.name if job.machine.product_line else 'General'} - {job.machine.machine_name} - {get_machine_job_label(job)}"
             for job in machine_jobs
         }
         machine_job_work_labels = {job.id: get_machine_job_label(job) for job in machine_jobs}
-        version_backfilled = False
-        for machine in machines:
-            if not machine.version_number:
-                machine.version_number = 1
-                version_backfilled = True
-            if not machine.version:
-                machine.version = machine.version_label
-                version_backfilled = True
-        if version_backfilled:
-            db.session.commit()
 
         project_job_quote_hours = {
             format_work_type_label(quote.work_type, quote.other_description): quote.quoted_hours or 0.0
@@ -864,31 +891,41 @@ def create_app():
         machine_work_type_hours = {}
         machine_display_labels = {}
         machine_groups = []
-        machine_version_groups = build_machine_version_groups(
-            product_lines,
-            machines,
-            machine_jobs,
-            machine_job_row_complete,
-            machine_job_milestones,
-        )
+        machine_job_version_children_map = defaultdict(list)
+        machine_job_version_family_map = defaultdict(list)
+        for job in machine_jobs:
+            root_job = get_machine_job_version_root(job)
+            machine_job_version_family_map[root_job.id].append(job)
+            if job.parent_job_id:
+                machine_job_version_children_map[job.parent_job_id].append(job)
 
-        label_family_counts = {}
-        for line_families in machine_version_groups.values():
-            for family in line_families:
-                family_labels = set()
-                for version_block in family["versions"]:
-                    for job in version_block["jobs"]:
-                        family_labels.add(machine_job_work_labels.get(job.id, get_machine_job_label(job)))
-                for label in family_labels:
-                    label_family_counts[label] = label_family_counts.get(label, 0) + 1
+        for family_jobs in machine_job_version_family_map.values():
+            family_jobs.sort(key=lambda item: ((item.version_number or 1), item.id))
 
-        machine_job_quote_hours = {
-            job_id: (
-                project_job_quote_hours.get(label, 0.0) / label_family_counts[label]
-                if label_family_counts.get(label) else 0.0
+        base_job_label_counts = {}
+        for job in machine_jobs:
+            if job.parent_job_id:
+                continue
+            label = machine_job_work_labels[job.id]
+            base_job_label_counts[label] = base_job_label_counts.get(label, 0) + 1
+
+        base_job_quote_hours = {
+            label: (
+                project_job_quote_hours.get(label, 0.0) / base_job_label_counts[label]
+                if base_job_label_counts.get(label) else 0.0
             )
-            for job_id, label in machine_job_work_labels.items()
+            for label in base_job_label_counts
         }
+
+        machine_job_quote_hours = {}
+        for job in machine_jobs:
+            root_job = get_machine_job_version_root(job)
+            root_label = machine_job_work_labels.get(root_job.id, get_machine_job_label(root_job))
+            machine_job_quote_hours[job.id] = (
+                job.quoted_hours
+                if (job.quoted_hours or 0.0) > 0
+                else base_job_quote_hours.get(root_label, 0.0)
+            )
 
         for machine in machines:
             work_type_rows = get_machine_work_type_rows(machine)
@@ -971,6 +1008,8 @@ def create_app():
             machine_job_milestones=machine_job_milestones,
             machine_job_row_complete=machine_job_row_complete,
             machine_jobs_by_machine_id=machine_jobs_by_machine_id,
+            machine_job_version_family_map=machine_job_version_family_map,
+            machine_job_version_children_map=machine_job_version_children_map,
             machine_work_type_rows=machine_work_type_rows,
             machine_work_type_choices=machine_work_type_choices,
             machine_work_type_hours=machine_work_type_hours,
@@ -1390,78 +1429,48 @@ def create_app():
         flash("Machine / Asset # deleted.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-    @app.route("/projects/<int:project_id>/machines/<int:machine_id>/versions/create", methods=["POST"])
-    def create_machine_version(project_id, machine_id):
+    @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/versions/create", methods=["POST"])
+    def create_machine_job_version(project_id, job_id):
         project = Project.query.get_or_404(project_id)
-        source_machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+        source_job = (
+            MachineJob.query.join(Machine)
+            .filter(MachineJob.id == job_id, Machine.project_id == project.id)
+            .first_or_404()
+        )
 
-        source_jobs = (
-            MachineJob.query.filter_by(machine_id=source_machine.id)
-            .order_by(MachineJob.id.asc())
-            .all()
-        )
-        source_machine_jobs_ready = machine_version_is_copy_ready(
-            source_machine,
-            source_jobs,
-            {job.id: (job.status == "Completed") for job in source_jobs},
-            {},
-        )
-        if not source_machine_jobs_ready:
-            flash("Complete all milestones and statuses before creating the next version.", "error")
+        if source_job.status != "Completed":
+            flash("Mark this job row Completed before creating the next version.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        family_root_machine = source_machine.parent_machine or source_machine
-        family_versions = [family_root_machine] + sorted(
-            list(family_root_machine.versions),
+        family_root_job = get_machine_job_version_root(source_job)
+        family_versions = [family_root_job] + sorted(
+            list(family_root_job.versions),
             key=lambda item: ((item.version_number or 1), item.id),
         )
 
-        next_version_number = (source_machine.version_number or 1) + 1
+        next_version_number = (source_job.version_number or 1) + 1
         if next_version_number > 3:
-            flash("Only V1.0 through V3.0 are supported for machine versions.", "error")
+            flash("Only V1.0 through V3.0 are supported for job versions.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        if any((machine.version_number or 1) == next_version_number for machine in family_versions):
-            flash(f"V{next_version_number}.0 already exists for this machine.", "error")
+        if any((job.version_number or 1) == next_version_number for job in family_versions):
+            flash(f"V{next_version_number}.0 already exists for this job.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        clone = Machine(
-            project_id=project.id,
-            product_line_id=source_machine.product_line_id,
-            machine_name=source_machine.machine_name,
-            status="N/S",
-            parent_machine_id=family_root_machine.id,
+        clone = MachineJob(
+            machine_id=source_job.machine_id,
+            parent_job_id=family_root_job.id,
+            work_type=source_job.work_type,
+            other_description=source_job.other_description,
             version_number=next_version_number,
-            version=f"V{next_version_number}.0",
-            quoted_hours=source_machine.quoted_hours or 0.0,
+            status="N/S",
+            quoted_hours=source_job.quoted_hours or 0.0,
             incurred_hours=0.0,
-            nctp=source_machine.nctp,
         )
         db.session.add(clone)
-        db.session.flush()
-
-        for wt in source_machine.work_types:
-            db.session.add(
-                MachineWorkType(
-                    machine_id=clone.id,
-                    work_type=wt.work_type,
-                    other_description=wt.other_description,
-                )
-            )
-
-        for job in source_jobs:
-            cloned_job = MachineJob(
-                machine_id=clone.id,
-                work_type=job.work_type,
-                other_description=job.other_description,
-                status="N/S",
-                quoted_hours=job.quoted_hours or 0.0,
-                incurred_hours=0.0,
-            )
-            db.session.add(cloned_job)
-
         db.session.commit()
-        flash(f"Created V{next_version_number}.0 for {source_machine.machine_name}.", "success")
+
+        flash(f"Created {clone.version_label} for {get_machine_job_label(source_job)}.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/status", methods=["POST"])
@@ -1851,7 +1860,10 @@ def ensure_machine_schema():
 
 
 def ensure_machine_job_schema():
-    """Create/backfill job-level tracking rows for machine work types."""
+    """Create/backfill job-level tracking rows for machine work types.
+    Also ensures parent_job_id and version_number columns exist.
+    """
+    # 1. Ensure machine_job_id column exists in time_entries
     time_entry_cols = {
         row[1]
         for row in db.session.execute(text("PRAGMA table_info(time_entries)")).fetchall()
@@ -1860,14 +1872,39 @@ def ensure_machine_job_schema():
         db.session.execute(text("ALTER TABLE time_entries ADD COLUMN machine_job_id INTEGER"))
         db.session.commit()
 
+    # 2. Ensure required columns exist in machine_jobs table
     machine_job_cols = {
         row[1]
         for row in db.session.execute(text("PRAGMA table_info(machine_jobs)")).fetchall()
     }
+
+    # Add parent_job_id if missing (this fixes your exact error)
+    if "parent_job_id" not in machine_job_cols:
+        db.session.execute(text("ALTER TABLE machine_jobs ADD COLUMN parent_job_id INTEGER"))
+        db.session.commit()
+        machine_job_cols.add("parent_job_id")
+
+    # Add version_number if missing
+    if "version_number" not in machine_job_cols:
+        db.session.execute(text("ALTER TABLE machine_jobs ADD COLUMN version_number INTEGER DEFAULT 1"))
+        db.session.commit()
+        machine_job_cols.add("version_number")
+
+    # Add incurred_hours if missing (your existing code)
     if "incurred_hours" not in machine_job_cols:
         db.session.execute(text("ALTER TABLE machine_jobs ADD COLUMN incurred_hours FLOAT DEFAULT 0.0"))
         db.session.commit()
 
+    # Backfill defaults for existing rows
+    if "version_number" in machine_job_cols:
+        db.session.execute(text("""
+            UPDATE machine_jobs 
+            SET version_number = 1 
+            WHERE version_number IS NULL OR version_number = 0
+        """))
+        db.session.commit()
+
+    # 3. Rest of your existing backfill logic (kept mostly the same)
     milestone_fields = [item["field"] for item in MACHINE_MILESTONE_DEFINITIONS]
 
     def job_label(job):
@@ -1890,10 +1927,12 @@ def ensure_machine_job_schema():
         return specs
 
     def get_or_create_job(machine, work_type, other_description=None):
+        # Use parent_job_id=None to only match root jobs (consistent with top-level function)
         existing = MachineJob.query.filter_by(
             machine_id=machine.id,
             work_type=work_type,
             other_description=other_description or None,
+            parent_job_id=None,          # ← important for hierarchy
         ).first()
         if existing:
             return existing, False
@@ -1903,17 +1942,19 @@ def ensure_machine_job_schema():
             work_type=work_type,
             other_description=other_description or None,
             status="N/S",
+            version_number=1,
+            parent_job_id=None,          # ← explicitly set for new root jobs
         )
         db.session.add(job)
         db.session.flush()
         return job, True
 
+    # ... (rest of the function stays exactly the same as you have it)
     machines = Machine.query.order_by(Machine.id.asc()).all()
     for machine in machines:
         for spec in machine_work_type_specs(machine):
             job, created = get_or_create_job(machine, spec["work_type"], spec["other_description"])
             if created and job.work_type == "RA" and not job.other_description:
-                # Legacy machine-level tracking becomes the RA job baseline.
                 job.status = machine.status or job.status or "N/S"
                 job.quoted_hours = machine.quoted_hours or job.quoted_hours or 0.0
                 job.incurred_hours = machine.incurred_hours or job.incurred_hours or 0.0
@@ -1923,6 +1964,7 @@ def ensure_machine_job_schema():
 
     db.session.flush()
 
+    # ... (the TimeEntry backfill part stays the same)
     jobs_by_machine = {}
     for job in MachineJob.query.order_by(MachineJob.id.asc()).all():
         jobs_by_machine.setdefault(job.machine_id, []).append(job)
@@ -1956,7 +1998,6 @@ def ensure_machine_job_schema():
         entry.machine_job_id = match.id
 
     db.session.commit()
-
 
 def ensure_project_schema():
     """Add created_at field to existing projects and set default values"""

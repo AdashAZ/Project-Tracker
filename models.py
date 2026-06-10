@@ -273,6 +273,7 @@ class MachineJob(db.Model):
     __tablename__ = "machine_jobs"
 
     id = db.Column(db.Integer, primary_key=True)
+    parent_job_id = db.Column(db.Integer, db.ForeignKey("machine_jobs.id"), nullable=True)
     machine_id = db.Column(
         db.Integer,
         db.ForeignKey("machines.id"),
@@ -280,6 +281,7 @@ class MachineJob(db.Model):
     )
     work_type = db.Column(db.String(50), nullable=False)
     other_description = db.Column(db.String(255))
+    version_number = db.Column(db.Integer, default=1)
     status = db.Column(db.String(50), default="N/S")
 
     report_cas_approval_date = db.Column(db.Date, nullable=True)
@@ -294,3 +296,16 @@ class MachineJob(db.Model):
 
     quoted_hours = db.Column(db.Float, default=0.0)
     incurred_hours = db.Column(db.Float, default=0.0)
+
+    parent_job = db.relationship(
+        "MachineJob",
+        remote_side=[id],
+        foreign_keys=[parent_job_id],
+        backref="versions",
+        lazy=True,
+    )
+
+    @property
+    def version_label(self) -> str:
+        version_num = self.version_number or 1
+        return f"V{version_num}.0"
