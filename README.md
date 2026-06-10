@@ -1,17 +1,4 @@
 
-<hr/>
-
-<p align="center">
-    <a href="https://github.com/evilsocket/pwnagotchi/releases/latest"><img alt="Release" src="https://img.shields.io/github/release/evilsocket/pwnagotchi.svg?style=flat-square"></a>
-    <a href="https://github.com/evilsocket/pwnagotchi/blob/master/LICENSE.md"><img alt="Software License" src="https://img.shields.io/badge/license-GPL3-brightgreen.svg?style=flat-square"></a>
-    <a href="https://github.com/evilsocket/pwnagotchi/graphs/contributors"><img alt="Contributors" src="https://img.shields.io/github/contributors/evilsocket/pwnagotchi"/></a>
-    <a href="https://twitter.com/intent/follow?screen_name=pwnagotchi"><img src="https://img.shields.io/twitter/follow/pwnagotchi?style=social&logo=twitter" alt="follow on Twitter"></a>
-    <br/>
-    <br/>
-    <img src="https://www.evilsocket.net/images/human-coded.png" height="30px" alt="This project is 100% made by humans."/>
-
-</p>
-
 **# Project Tracker**
 
 A lightweight, web-based Flask application for managing engineering/manufacturing projects, including machines/assets, milestones, comments, and detailed labor tracking.
