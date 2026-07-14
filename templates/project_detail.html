@@ -339,7 +339,7 @@
             </td>
 
             <td class="row-actions">
-              <a href="{{ url_for('project_detail', project_id=project.id, edit_machine=machine.id) }}#machines" title="Edit Machine" aria-label="Edit Machine">
+              <a href="{{ url_for('project_detail', project_id=project.id, edit_machine=machine.id, edit_job=job.id) }}#machines" title="Edit Machine" aria-label="Edit Machine">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                   <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -395,10 +395,12 @@
           </tr>
 
           {% if edit_machine_id == machine.id %}
+          {% set edit_job = machine_jobs_by_id.get(edit_machine_job_id) if edit_machine_job_id else none %}
           <tr class="edit-row">
             <td colspan="9">
               <form method="post" action="{{ url_for('update_machine', project_id=project.id, machine_id=machine.id) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="edit_job_id" value="{{ edit_job.id if edit_job else '' }}">
                 <input type="hidden" name="work_types_payload" class="machine-work-types-payload" value="[]">
 
                 <div class="machine-edit-grid">
@@ -421,64 +423,64 @@
                     <label for="edit-machine-status-{{ machine.id }}">Work Status</label>
                     <select id="edit-machine-status-{{ machine.id }}" name="status">
                       {% for status_option in machine_status_options %}
-                      <option value="{{ status_option }}" {% if machine.status == status_option %}selected{% endif %}>{{ status_option }}</option>
+                      <option value="{{ status_option }}" {% if (edit_job.status if edit_job else machine.status) == status_option %}selected{% endif %}>{{ status_option }}</option>
                       {% endfor %}
                     </select>
                   </div>
 
                   <div>
                     <label for="edit-quoted-hours-{{ machine.id }}">Quoted Hours</label>
-                    <input type="number" step="0.1" id="edit-quoted-hours-{{ machine.id }}" name="quoted_hours" value="{{ machine.quoted_hours or 0 }}">
+                    <input type="number" step="0.1" id="edit-quoted-hours-{{ machine.id }}" name="quoted_hours" value="{{ machine_job_quote_hours.get(edit_job.id, edit_job.quoted_hours or 0) if edit_job else machine.quoted_hours or 0 }}">
                   </div>
 
                   <div>
                     <label for="edit-incurred-hours-{{ machine.id }}">Incurred Hours</label>
-                    <input type="number" step="0.1" id="edit-incurred-hours-{{ machine.id }}" name="incurred_hours" value="{{ machine.incurred_hours or 0 }}">
+                    <input type="number" step="0.1" id="edit-incurred-hours-{{ machine.id }}" name="incurred_hours" value="{{ machine_job_hours.get(edit_job.id, edit_job.incurred_hours or 0) if edit_job else machine.incurred_hours or 0 }}">
                   </div>
 
                   <div>
                     <label for="edit-cas-approval-{{ machine.id }}">Report CAS Approval Date</label>
-                    <input type="date" id="edit-cas-approval-{{ machine.id }}" name="report_cas_approval_date" value="{{ machine.report_cas_approval_date.isoformat() if machine.report_cas_approval_date else '' }}">
+                    <input type="date" id="edit-cas-approval-{{ machine.id }}" name="report_cas_approval_date" value="{{ (edit_job.report_cas_approval_date if edit_job else machine.report_cas_approval_date).isoformat() if (edit_job.report_cas_approval_date if edit_job else machine.report_cas_approval_date) else '' }}">
                   </div>
 
                   <div>
                     <label for="edit-sent-customer-{{ machine.id }}">Report Sent to Customer Date</label>
-                    <input type="date" id="edit-sent-customer-{{ machine.id }}" name="report_sent_customer_date" value="{{ machine.report_sent_customer_date.isoformat() if machine.report_sent_customer_date else '' }}">
+                    <input type="date" id="edit-sent-customer-{{ machine.id }}" name="report_sent_customer_date" value="{{ (edit_job.report_sent_customer_date if edit_job else machine.report_sent_customer_date).isoformat() if (edit_job.report_sent_customer_date if edit_job else machine.report_sent_customer_date) else '' }}">
                   </div>
 
                   <div>
                     <label for="edit-sent-review-edb-{{ machine.id }}">Report Sent for Review in EDB</label>
-                    <input type="date" id="edit-sent-review-edb-{{ machine.id }}" name="report_sent_review_edb_date" value="{{ machine.report_sent_review_edb_date.isoformat() if machine.report_sent_review_edb_date else '' }}">
+                    <input type="date" id="edit-sent-review-edb-{{ machine.id }}" name="report_sent_review_edb_date" value="{{ (edit_job.report_sent_review_edb_date if edit_job else machine.report_sent_review_edb_date).isoformat() if (edit_job.report_sent_review_edb_date if edit_job else machine.report_sent_review_edb_date) else '' }}">
                   </div>
 
                   <div>
                     <label for="edit-released-edb-{{ machine.id }}">Released in EDB</label>
-                    <input type="date" id="edit-released-edb-{{ machine.id }}" name="released_in_edb_date" value="{{ machine.released_in_edb_date.isoformat() if machine.released_in_edb_date else '' }}">
+                    <input type="date" id="edit-released-edb-{{ machine.id }}" name="released_in_edb_date" value="{{ (edit_job.released_in_edb_date if edit_job else machine.released_in_edb_date).isoformat() if (edit_job.released_in_edb_date if edit_job else machine.released_in_edb_date) else '' }}">
                   </div>
 
                   <div>
                     <label for="edit-uploaded-s-drive-reports-{{ machine.id }}">Uploaded to S Drive - REPORT(s)</label>
-                    <input type="date" id="edit-uploaded-s-drive-reports-{{ machine.id }}" name="uploaded_s_drive_reports_date" value="{{ machine.uploaded_s_drive_reports_date.isoformat() if machine.uploaded_s_drive_reports_date else '' }}">
+                    <input type="date" id="edit-uploaded-s-drive-reports-{{ machine.id }}" name="uploaded_s_drive_reports_date" value="{{ (edit_job.uploaded_s_drive_reports_date if edit_job else machine.uploaded_s_drive_reports_date).isoformat() if (edit_job.uploaded_s_drive_reports_date if edit_job else machine.uploaded_s_drive_reports_date) else '' }}">
                   </div>
 
                   <div>
                     <label for="edit-uploaded-s-drive-jsa-{{ machine.id }}">Uploaded to S Drive - JSA</label>
-                    <input type="date" id="edit-uploaded-s-drive-jsa-{{ machine.id }}" name="uploaded_s_drive_jsa_date" value="{{ machine.uploaded_s_drive_jsa_date.isoformat() if machine.uploaded_s_drive_jsa_date else '' }}">
+                    <input type="date" id="edit-uploaded-s-drive-jsa-{{ machine.id }}" name="uploaded_s_drive_jsa_date" value="{{ (edit_job.uploaded_s_drive_jsa_date if edit_job else machine.uploaded_s_drive_jsa_date).isoformat() if (edit_job.uploaded_s_drive_jsa_date if edit_job else machine.uploaded_s_drive_jsa_date) else '' }}">
                   </div>
 
                   <div>
                     <label for="edit-uploaded-s-drive-photos-{{ machine.id }}">Uploaded to S Drive - PHOTOS</label>
-                    <input type="date" id="edit-uploaded-s-drive-photos-{{ machine.id }}" name="uploaded_s_drive_photos_date" value="{{ machine.uploaded_s_drive_photos_date.isoformat() if machine.uploaded_s_drive_photos_date else '' }}">
+                    <input type="date" id="edit-uploaded-s-drive-photos-{{ machine.id }}" name="uploaded_s_drive_photos_date" value="{{ (edit_job.uploaded_s_drive_photos_date if edit_job else machine.uploaded_s_drive_photos_date).isoformat() if (edit_job.uploaded_s_drive_photos_date if edit_job else machine.uploaded_s_drive_photos_date) else '' }}">
                   </div>
 
                   <div>
                     <label for="edit-uploaded-s-drive-vizio-{{ machine.id }}">Uploaded to S Drive - VIZIO</label>
-                    <input type="date" id="edit-uploaded-s-drive-vizio-{{ machine.id }}" name="uploaded_s_drive_vizio_date" value="{{ machine.uploaded_s_drive_vizio_date.isoformat() if machine.uploaded_s_drive_vizio_date else '' }}">
+                    <input type="date" id="edit-uploaded-s-drive-vizio-{{ machine.id }}" name="uploaded_s_drive_vizio_date" value="{{ (edit_job.uploaded_s_drive_vizio_date if edit_job else machine.uploaded_s_drive_vizio_date).isoformat() if (edit_job.uploaded_s_drive_vizio_date if edit_job else machine.uploaded_s_drive_vizio_date) else '' }}">
                   </div>
 
                   <div>
                     <label for="edit-log-updated-{{ machine.id }}">Log Updated</label>
-                    <input type="date" id="edit-log-updated-{{ machine.id }}" name="log_updated_date" value="{{ machine.log_updated_date.isoformat() if machine.log_updated_date else '' }}">
+                    <input type="date" id="edit-log-updated-{{ machine.id }}" name="log_updated_date" value="{{ (edit_job.log_updated_date if edit_job else machine.log_updated_date).isoformat() if (edit_job.log_updated_date if edit_job else machine.log_updated_date) else '' }}">
                   </div>
                 </div>
 

@@ -873,8 +873,10 @@ def create_app():
             machine_job_milestones  # milestones map
         )
         machine_jobs_by_machine_id = defaultdict(list)
+        machine_jobs_by_id = {}
         for job in machine_jobs:
             machine_jobs_by_machine_id[job.machine_id].append(job)
+            machine_jobs_by_id[job.id] = job
         machine_job_display_labels = {
             job.id: f"{get_machine_job_version_label_value(job)} - {job.machine.product_line.name if job.machine.product_line else 'General'} - {job.machine.machine_name} - {get_machine_job_label(job)}"
             for job in machine_jobs
@@ -975,6 +977,15 @@ def create_app():
         edit_machine_id = request.args.get("edit_machine", type=int)
         if edit_machine_id and not any(machine.id == edit_machine_id for machine in machines):
             edit_machine_id = None
+        edit_machine_job_id = request.args.get("edit_job", type=int)
+        if (
+            edit_machine_job_id
+            and (
+                edit_machine_job_id not in machine_jobs_by_id
+                or machine_jobs_by_id[edit_machine_job_id].machine_id != edit_machine_id
+            )
+        ):
+            edit_machine_job_id = None
 
         edit_time_entry_id = request.args.get("edit_time_entry", type=int)
         if edit_time_entry_id and not any(entry.id == edit_time_entry_id for entry in time_entries):
@@ -1008,6 +1019,7 @@ def create_app():
             machine_job_milestones=machine_job_milestones,
             machine_job_row_complete=machine_job_row_complete,
             machine_jobs_by_machine_id=machine_jobs_by_machine_id,
+            machine_jobs_by_id=machine_jobs_by_id,
             machine_job_version_family_map=machine_job_version_family_map,
             machine_job_version_children_map=machine_job_version_children_map,
             machine_work_type_rows=machine_work_type_rows,
@@ -1018,6 +1030,7 @@ def create_app():
             work_type_options=WORK_TYPE_OPTIONS,
             milestone_definitions=MACHINE_MILESTONE_DEFINITIONS,
             edit_machine_id=edit_machine_id,
+            edit_machine_job_id=edit_machine_job_id,
             edit_time_entry_id=edit_time_entry_id,
             edit_comment_id=edit_comment_id,
         )
@@ -1150,6 +1163,7 @@ def create_app():
         incurred_hours_raw = request.form.get("incurred_hours")
         version = (request.form.get("version") or "").strip() or machine.version or machine.version_label
         nctp = request.form.get("nctp") == "on"
+        edit_job_id_raw = request.form.get("edit_job_id")
 
         cas_approval_raw = request.form.get("report_cas_approval_date")
         sent_customer_raw = request.form.get("report_sent_customer_date")
@@ -1165,6 +1179,19 @@ def create_app():
         if not machine_name:
             flash("Machine / Asset # cannot be empty.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        target_job = None
+        target_job_id = None
+        if edit_job_id_raw:
+            try:
+                target_job_id = int(edit_job_id_raw)
+            except ValueError:
+                target_job_id = None
+            if target_job_id:
+                target_job = MachineJob.query.filter_by(id=target_job_id, machine_id=machine.id).first()
+            if target_job is None:
+                flash("Invalid job row selection.", "error")
+                return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
         if status not in MACHINE_STATUS_OPTIONS:
             flash("Invalid machine status value.", "error")
@@ -1239,23 +1266,36 @@ def create_app():
         if sync_error:
             flash(sync_error, "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+        if target_job_id:
+            target_job = MachineJob.query.filter_by(id=target_job_id, machine_id=machine.id).first()
+            if target_job is None:
+                db.session.rollback()
+                flash("The selected job row no longer exists.", "error")
+                return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        milestone_updates = {
+            "report_cas_approval_date": cas_approval,
+            "report_sent_customer_date": sent_customer,
+            "report_sent_review_edb_date": sent_review_edb,
+            "released_in_edb_date": released_edb,
+            "uploaded_s_drive_reports_date": uploaded_s_drive_reports,
+            "uploaded_s_drive_jsa_date": uploaded_s_drive_jsa,
+            "uploaded_s_drive_photos_date": uploaded_s_drive_photos,
+            "uploaded_s_drive_vizio_date": uploaded_s_drive_vizio,
+            "log_updated_date": log_updated,
+        }
 
         machine.machine_name = machine_name
         machine.product_line_id = product_line_id_value
-        machine.status = status
-        machine.quoted_hours = quoted_hours if quoted_hours is not None else 0.0
-        machine.incurred_hours = incurred_hours if incurred_hours is not None else 0.0
         machine.version = version
         machine.nctp = nctp
-        machine.report_cas_approval_date = cas_approval
-        machine.report_sent_customer_date = sent_customer
-        machine.report_sent_review_edb_date = sent_review_edb
-        machine.released_in_edb_date = released_edb
-        machine.uploaded_s_drive_reports_date = uploaded_s_drive_reports
-        machine.uploaded_s_drive_jsa_date = uploaded_s_drive_jsa
-        machine.uploaded_s_drive_photos_date = uploaded_s_drive_photos
-        machine.uploaded_s_drive_vizio_date = uploaded_s_drive_vizio
-        machine.log_updated_date = log_updated
+
+        if target_job is not None:
+            target_job.status = status
+            target_job.quoted_hours = quoted_hours if quoted_hours is not None else 0.0
+            target_job.incurred_hours = incurred_hours if incurred_hours is not None else 0.0
+            for field, value in milestone_updates.items():
+                setattr(target_job, field, value)
 
         MachineWorkType.query.filter_by(machine_id=machine.id).delete()
         for wt in parsed_work_types:
@@ -1270,7 +1310,7 @@ def create_app():
 
         db.session.commit()
 
-        flash("Machine row updated.", "success")
+        flash("Job row updated.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/machines/<int:machine_id>/status", methods=["POST"])
@@ -2030,4 +2070,3 @@ def ensure_project_schema():
 if __name__ == "__main__":
     app = create_app()
     app.run(debug=True)
-
