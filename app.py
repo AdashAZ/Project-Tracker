@@ -1689,6 +1689,7 @@ def create_app():
         due_date_str = request.form.get("due_date")
         expenses_submitted_date_str = request.form.get("expenses_submitted_date")
         quoted_hours_total = request.form.get("quoted_hours_total")
+        job_quotes_payload = request.form.get("job_quotes_payload")
         status = request.form.get("status")
 
         if customer is not None:
@@ -1720,7 +1721,24 @@ def create_app():
         else:
             project.expenses_submitted_date = None
 
-        if quoted_hours_total is not None and quoted_hours_total != "":
+        if job_quotes_payload:
+            job_quotes, job_quotes_error = parse_job_quotes_payload(job_quotes_payload)
+            if job_quotes_error:
+                flash(job_quotes_error, "error")
+                return redirect(url_for("project_detail", project_id=project.id))
+
+            ProjectJobQuote.query.filter_by(project_id=project.id).delete()
+            for quote in job_quotes:
+                db.session.add(
+                    ProjectJobQuote(
+                        project_id=project.id,
+                        work_type=quote["work_type"],
+                        other_description=quote["other_description"],
+                        quoted_hours=quote["quoted_hours"],
+                    )
+                )
+            project.quoted_hours_total = sum(item["quoted_hours"] for item in job_quotes)
+        elif quoted_hours_total is not None and quoted_hours_total != "":
             parsed_quoted = parse_float_input(quoted_hours_total)
             if parsed_quoted is None:
                 flash("Quoted hours must be a valid number.", "error")

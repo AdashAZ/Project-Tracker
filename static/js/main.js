@@ -636,6 +636,154 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ---------------------------
+  // Project detail: quoted hours breakdown editor
+  // ---------------------------
+  const projectEditForm = document.querySelector("#project-edit form");
+  const projectEditJobQuoteList = document.getElementById("project-edit-job-quote-list");
+  const projectEditJobQuoteTemplate = document.getElementById("project-edit-job-quote-row-template");
+  const projectEditAddJobQuoteBtn = document.getElementById("project-edit-add-job-quote-btn");
+  const projectEditJobQuotesPayloadInput = document.getElementById("project-edit-job-quotes-payload");
+  const projectEditQuotedHoursTotalInput = document.getElementById("project-edit-quoted-hours-total");
+
+  const bindProjectEditJobQuoteRow = (row) => {
+    const select = row.querySelector(".job-quote-work-type");
+    const otherInput = row.querySelector(".job-quote-other");
+    const hoursInput = row.querySelector(".job-quote-hours");
+    const removeBtn = row.querySelector("[data-remove-job-quote]");
+
+    const updateOtherVisibility = () => {
+      if (!select || !otherInput) return;
+      const showOther = select.value === "Other";
+      otherInput.style.display = showOther ? "" : "none";
+      if (!showOther) otherInput.value = "";
+    };
+
+    if (select) {
+      select.addEventListener("change", () => {
+        updateOtherVisibility();
+        updateProjectEditQuotedTotal();
+      });
+      updateOtherVisibility();
+    }
+
+    if (hoursInput) {
+      hoursInput.addEventListener("input", updateProjectEditQuotedTotal);
+    }
+
+    if (otherInput) {
+      otherInput.addEventListener("input", updateProjectEditQuotedTotal);
+    }
+
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => {
+        row.remove();
+        if (projectEditJobQuoteList && projectEditJobQuoteList.querySelectorAll("[data-job-quote-row]").length === 0) {
+          addProjectEditJobQuoteRow();
+        }
+        refreshProjectEditJobQuoteRemoveButtons();
+        updateProjectEditQuotedTotal();
+      });
+    }
+  };
+
+  const refreshProjectEditJobQuoteRemoveButtons = () => {
+    if (!projectEditJobQuoteList) return;
+    const rows = Array.from(projectEditJobQuoteList.querySelectorAll("[data-job-quote-row]"));
+    const showRemove = rows.length > 1;
+    rows.forEach((row) => {
+      const removeBtn = row.querySelector("[data-remove-job-quote]");
+      if (!removeBtn) return;
+      removeBtn.hidden = !showRemove;
+      removeBtn.disabled = !showRemove;
+    });
+  };
+
+  function addProjectEditJobQuoteRow() {
+    if (!projectEditJobQuoteList || !projectEditJobQuoteTemplate) return;
+    const row = projectEditJobQuoteTemplate.content.firstElementChild.cloneNode(true);
+    projectEditJobQuoteList.appendChild(row);
+    bindProjectEditJobQuoteRow(row);
+    refreshProjectEditJobQuoteRemoveButtons();
+  }
+
+  const serializeProjectEditJobQuoteRows = () => {
+    const payload = [];
+    const seen = new Set();
+    let hasError = false;
+    let total = 0;
+
+    if (!projectEditJobQuoteList) return { payload, hasError, total };
+
+    projectEditJobQuoteList.querySelectorAll("[data-job-quote-row]").forEach((row) => {
+      const hoursInput = row.querySelector(".job-quote-hours");
+      const select = row.querySelector(".job-quote-work-type");
+      const otherInput = row.querySelector(".job-quote-other");
+      const hoursRaw = (hoursInput?.value || "").trim();
+      const workType = (select?.value || "").trim();
+      const otherDescription = (otherInput?.value || "").trim();
+
+      if (!hoursRaw && !workType && !otherDescription) return;
+
+      const hours = Number(hoursRaw);
+      if (!workType || !Number.isFinite(hours) || hours < 0) {
+        hasError = true;
+        return;
+      }
+
+      if (workType === "Other" && !otherDescription) {
+        hasError = true;
+        return;
+      }
+
+      const key = `${workType}::${otherDescription}`;
+      if (seen.has(key)) {
+        hasError = true;
+        return;
+      }
+
+      seen.add(key);
+      total += hours;
+      payload.push({ work_type: workType, other_description: otherDescription, quoted_hours: hours });
+    });
+
+    return { payload, hasError, total };
+  };
+
+  function updateProjectEditQuotedTotal() {
+    if (!projectEditQuotedHoursTotalInput) return;
+    const { total } = serializeProjectEditJobQuoteRows();
+    projectEditQuotedHoursTotalInput.value = total.toString();
+  }
+
+  if (projectEditJobQuoteList) {
+    projectEditJobQuoteList.querySelectorAll("[data-job-quote-row]").forEach((row) => bindProjectEditJobQuoteRow(row));
+    refreshProjectEditJobQuoteRemoveButtons();
+  }
+
+  if (projectEditAddJobQuoteBtn) {
+    projectEditAddJobQuoteBtn.addEventListener("click", () => {
+      addProjectEditJobQuoteRow();
+      updateProjectEditQuotedTotal();
+    });
+  }
+
+  if (projectEditForm && projectEditJobQuotesPayloadInput) {
+    projectEditForm.addEventListener("submit", (event) => {
+      const { payload, hasError, total } = serializeProjectEditJobQuoteRows();
+      if (hasError) {
+        event.preventDefault();
+        alert("Each quoted-hours row must include valid hours and one unique job. Other requires a description.");
+        return;
+      }
+
+      projectEditJobQuotesPayloadInput.value = payload.length > 0 ? JSON.stringify(payload) : "";
+      if (projectEditQuotedHoursTotalInput && payload.length > 0) {
+        projectEditQuotedHoursTotalInput.value = total.toString();
+      }
+    });
+  }
+
+  // ---------------------------
   // Project detail: toggle edit form
   // ---------------------------
   const toggleBtn = document.getElementById("toggle-edit-btn");

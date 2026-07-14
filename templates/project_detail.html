@@ -138,6 +138,7 @@
 
     <form method="post" action="{{ url_for('update_project', project_id=project.id) }}">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" id="project-edit-job-quotes-payload" name="job_quotes_payload" value="[]">
 
       <div class="form-group">
         <label for="customer">Customer</label>
@@ -186,8 +187,44 @@
       </div>
 
       <div class="form-group">
-        <label for="quoted_hours_total">Quoted Hours (Total)</label>
-        <input type="number" step="0.1" id="quoted_hours_total" name="quoted_hours_total" value="{{ project.quoted_hours_total or 0 }}">
+        <label for="project-edit-quoted-hours-total">Quoted Hours (Total)</label>
+        <input type="number" step="0.1" id="project-edit-quoted-hours-total" name="quoted_hours_total" value="{{ project.quoted_hours_total or 0 }}">
+      </div>
+
+      <div class="quoted-hours-builder">
+        <div class="quoted-hours-builder-header">
+          <label>Quoted Hours by Job</label>
+          <button type="button" class="btn-mini" id="project-edit-add-job-quote-btn">Add Quoted Hours</button>
+        </div>
+        <div id="project-edit-job-quote-list" class="job-quote-list">
+          {% if project.job_quotes %}
+            {% for quote in project.job_quotes|sort(attribute='id') %}
+            <div class="job-quote-row" data-job-quote-row>
+              <input type="number" step="0.1" min="0" class="job-quote-hours" placeholder="Hours" value="{{ quote.quoted_hours or 0 }}">
+              <select class="job-quote-work-type">
+                <option value="">-- Select Job --</option>
+                {% for work_type in work_type_options %}
+                <option value="{{ work_type }}" {% if quote.work_type == work_type %}selected{% endif %}>{{ work_type }}</option>
+                {% endfor %}
+              </select>
+              <input type="text" class="job-quote-other" placeholder="Describe other work" value="{{ quote.other_description or '' }}" {% if quote.work_type != 'Other' %}style="display: none;"{% endif %}>
+              <button type="button" class="btn-mini job-quote-remove-btn" data-remove-job-quote>Remove</button>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="job-quote-row" data-job-quote-row>
+              <input type="number" step="0.1" min="0" class="job-quote-hours" placeholder="Hours">
+              <select class="job-quote-work-type">
+                <option value="">-- Select Job --</option>
+                {% for work_type in work_type_options %}
+                <option value="{{ work_type }}">{{ work_type }}</option>
+                {% endfor %}
+              </select>
+              <input type="text" class="job-quote-other" placeholder="Describe other work" style="display: none;">
+              <button type="button" class="btn-mini job-quote-remove-btn" data-remove-job-quote>Remove</button>
+            </div>
+          {% endif %}
+        </div>
       </div>
 
       <button type="submit">Save Changes</button>
@@ -750,6 +787,19 @@
         {% endfor %}
       </select>
       <input type="text" class="machine-work-type-other" placeholder="Describe other work" style="display: none;">
+    </div>
+  </template>
+  <template id="project-edit-job-quote-row-template">
+    <div class="job-quote-row" data-job-quote-row>
+      <input type="number" step="0.1" min="0" class="job-quote-hours" placeholder="Hours">
+      <select class="job-quote-work-type">
+        <option value="">-- Select Job --</option>
+        {% for work_type in work_type_options %}
+        <option value="{{ work_type }}">{{ work_type }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" class="job-quote-other" placeholder="Describe other work" style="display: none;">
+      <button type="button" class="btn-mini job-quote-remove-btn" data-remove-job-quote>Remove</button>
     </div>
   </template>
 </div>
