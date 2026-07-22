@@ -1738,6 +1738,36 @@ def create_app():
                     )
                 )
             project.quoted_hours_total = sum(item["quoted_hours"] for item in job_quotes)
+
+
+            # Add new quoted job types to all existing machines so they appear
+            # as new rows in the machine list.
+            machines = Machine.query.filter_by(project_id=project.id).all()
+
+            for machine in machines:
+                for quote in job_quotes:
+                    existing_work_type = MachineWorkType.query.filter_by(
+                        machine_id=machine.id,
+                        work_type=quote["work_type"],
+                        other_description=quote["other_description"],
+                    ).first()
+
+                    if not existing_work_type:
+                        db.session.add(
+                            MachineWorkType(
+                                machine_id=machine.id,
+                                work_type=quote["work_type"],
+                                other_description=quote["other_description"],
+                            )
+                        )
+
+                    get_or_create_machine_job(
+                        machine,
+                        quote["work_type"],
+                        quote["other_description"],
+                    )
+
+
         elif quoted_hours_total is not None and quoted_hours_total != "":
             parsed_quoted = parse_float_input(quoted_hours_total)
             if parsed_quoted is None:

@@ -872,6 +872,93 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+
+  function toggleOtherInput(row, selectSelector, otherSelector) {
+    const select = row.querySelector(selectSelector);
+    const other = row.querySelector(otherSelector);
+    if (!select || !other) return;
+
+    other.style.display = select.value === 'Other' ? 'block' : 'none';
+
+    select.addEventListener('change', function() {
+      other.style.display = this.value === 'Other' ? 'block' : 'none';
+      if (this.value !== 'Other') other.value = '';
+    });
+  }
+
+  function collectJobQuotes(listEl) {
+    return Array.from(listEl.querySelectorAll('[data-job-quote-row]'))
+      .map(row => {
+        const hours = row.querySelector('.job-quote-hours')?.value || '';
+        const workType = row.querySelector('.job-quote-work-type')?.value || '';
+        const other = row.querySelector('.job-quote-other')?.value || '';
+
+        return {
+          quoted_hours: hours,
+          work_type: workType,
+          other_description: other
+        };
+      })
+      .filter(item => item.work_type || item.quoted_hours);
+  }
+
+  function updateProjectEditQuotedTotal() {
+    const list = document.getElementById('project-edit-job-quote-list');
+    const totalInput = document.getElementById('project-edit-quoted-hours-total');
+    if (!list || !totalInput) return;
+
+    const total = collectJobQuotes(list).reduce((sum, item) => {
+      return sum + (parseFloat(item.quoted_hours) || 0);
+    }, 0);
+
+    totalInput.value = total.toFixed(1);
+  }
+
+  const projectEditForm = document.querySelector(
+    'form[action="{{ url_for("update_project", project_id=project.id) }}"]'
+  );
+  const projectEditQuoteList = document.getElementById('project-edit-job-quote-list');
+  const projectEditQuotePayload = document.getElementById('project-edit-job-quotes-payload');
+  const projectEditAddQuoteBtn = document.getElementById('project-edit-add-job-quote-btn');
+  const projectEditQuoteTemplate = document.getElementById('project-edit-job-quote-row-template');
+
+  if (projectEditQuoteList) {
+    projectEditQuoteList.querySelectorAll('[data-job-quote-row]').forEach(row => {
+      toggleOtherInput(row, '.job-quote-work-type', '.job-quote-other');
+    });
+
+    projectEditQuoteList.addEventListener('input', updateProjectEditQuotedTotal);
+    projectEditQuoteList.addEventListener('change', updateProjectEditQuotedTotal);
+
+    projectEditQuoteList.addEventListener('click', function(event) {
+      if (!event.target.matches('[data-remove-job-quote]')) return;
+      event.target.closest('[data-job-quote-row]')?.remove();
+      updateProjectEditQuotedTotal();
+    });
+  }
+
+  if (projectEditAddQuoteBtn && projectEditQuoteTemplate && projectEditQuoteList) {
+    projectEditAddQuoteBtn.addEventListener('click', function() {
+      const row = projectEditQuoteTemplate.content.firstElementChild.cloneNode(true);
+      projectEditQuoteList.appendChild(row);
+      toggleOtherInput(row, '.job-quote-work-type', '.job-quote-other');
+      updateProjectEditQuotedTotal();
+    });
+  }
+
+  if (projectEditForm && projectEditQuoteList && projectEditQuotePayload) {
+    projectEditForm.addEventListener('submit', function() {
+      const quotes = collectJobQuotes(projectEditQuoteList);
+      projectEditQuotePayload.value = JSON.stringify(quotes);
+      updateProjectEditQuotedTotal();
+    });
+  }
+
+  // Work type selection functionality for adding machines
+  const addWorkTypeBtn = document.getElementById('add-work-type-btn');
+
+
+
   // Work type selection functionality for adding machines
   const addWorkTypeBtn = document.getElementById('add-work-type-btn');
   const workTypesContainer = document.getElementById('machine-work-types-add');

@@ -5,3 +5,4 @@ __pycache__/
 .env.*
 instance/*.db
 details.txt
+test_grok.py
