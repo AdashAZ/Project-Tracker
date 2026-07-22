@@ -308,7 +308,7 @@
           {% for job in machine_jobs_for_row %}
           {% set tracked_hours = machine_job_hours.get(job.id, 0.0) %}
           {% set job_label = machine_job_work_labels.get(job.id, '') %}
-          <tr class="machine-status-{{ job.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_job_row_complete.get(job.id) %} machine-complete-row{% endif %}" data-product-line-id="{{ machine.product_line_id }}">
+          <tr id="machine-job-{{ job.id }}" class="machine-status-{{ job.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_job_row_complete.get(job.id) %} machine-complete-row{% endif %}" data-product-line-id="{{ machine.product_line_id }}">
             <td>{{ machine.product_line.name if machine.product_line else 'General' }}</td>
             <td>
               <div class="machine-name-stack">
@@ -346,24 +346,41 @@
             <td class="milestone-cell milestone-panel-cell">
               <div class="milestone-panel-grid">
                 {% for milestone in milestone_definitions %}
-                {% set milestone_value = machine_job_milestones[job.id][milestone.key] %}
-                <div class="milestone-panel-item {% if milestone_value %}milestone-done{% endif %}">
+                {% set milestone_state = machine_job_milestones[job.id][milestone.key] %}
+                {% set milestone_value = milestone_state["date"] %}
+                <div class="milestone-panel-item {% if milestone_state['is_handled'] %}milestone-done{% endif %}{% if milestone_state['is_missing'] %} milestone-missing{% endif %}">
                   <div class="milestone-panel-label">{{ milestone.label }}</div>
                   <div class="milestone-inline-row">
-                    <div class="milestone-date">{{ milestone_value.isoformat() if milestone_value else 'N/A' }}</div>
+                    <div class="milestone-date">
+                      {% if milestone_value %}
+                        {{ milestone_value.isoformat() }}
+                      {% elif milestone_state["is_na"] %}
+                        N/A
+                      {% else %}
+                        Missing
+                      {% endif %}
+                    </div>
                     <div class="milestone-actions milestone-actions-compact">
                       <form
                         method="post"
                         action="{{ url_for('set_machine_job_milestone_today', project_id=project.id, job_id=job.id, milestone_key=milestone.key) }}"
-                        {% if milestone_value %}onsubmit="return confirm('This will overwrite the existing date with today. Continue?');"{% endif %}
+                        {% if milestone_value or milestone_state["is_na"] %}onsubmit="return confirm('This will overwrite the existing milestone state with today. Continue?');"{% endif %}
                       >
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-mini">Set Today</button>
                       </form>
                       <form
                         method="post"
+                        action="{{ url_for('mark_machine_job_milestone_na', project_id=project.id, job_id=job.id, milestone_key=milestone.key) }}"
+                        {% if milestone_value %}onsubmit="return confirm('This will clear the existing date and mark this milestone N/A. Continue?');"{% endif %}
+                      >
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-mini btn-milestone-na" title="Mark this milestone not applicable" aria-label="Mark {{ milestone.label }} not applicable">N/A</button>
+                      </form>
+                      <form
+                        method="post"
                         action="{{ url_for('clear_machine_job_milestone', project_id=project.id, job_id=job.id, milestone_key=milestone.key) }}"
-                        onsubmit="return confirm('Clear this date?');"
+                        onsubmit="return confirm('Clear this milestone?');"
                       >
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn-mini btn-link-danger">Clear</button>

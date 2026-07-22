@@ -509,7 +509,7 @@ tbody tr.machine-status-in-review td:not(.milestone-done) {
   background-color: #4fd1ff !important;
 }
 
-tbody tr.machine-status-completed td {
+tbody tr.machine-status-completed.machine-complete-row td {
   background-color: #e3f4e8 !important;
 }
 
@@ -1332,7 +1332,7 @@ tbody tr.machine-status-stopped select {
   background-color: #4fd1ff !important;
 }
 
-#machines tbody tr.machine-status-completed td {
+#machines tbody tr.machine-status-completed.machine-complete-row td {
   background-color: #e3f4e8 !important;
 }
 
@@ -1704,6 +1704,18 @@ tbody tr.machine-status-stopped select {
   font-weight: 800;
 }
 
+.milestone-panel-item.milestone-missing {
+  background: #fde7e6;
+  border-left: 3px solid var(--danger);
+  padding-left: 0.22rem;
+}
+
+.milestone-panel-item.milestone-missing .milestone-date {
+  background: #fff2f1;
+  color: var(--danger);
+  font-weight: 800;
+}
+
 .milestone-panel-item .milestone-date {
   display: inline-flex;
   align-items: center;
@@ -1730,6 +1742,13 @@ tbody tr.machine-status-stopped select {
 
 .milestone-panel-item .milestone-actions .btn-mini {
   white-space: nowrap;
+}
+
+.milestone-panel-item .milestone-actions .btn-milestone-na {
+  border-color: #9aa9bb;
+  color: #254669;
+  background: #f5f8fc;
+  font-weight: 800;
 }
 
 .milestone-panel-item .milestone-date {

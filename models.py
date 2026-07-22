@@ -294,6 +294,16 @@ class MachineJob(db.Model):
     uploaded_s_drive_vizio_date = db.Column(db.Date, nullable=True)
     log_updated_date = db.Column(db.Date, nullable=True)
 
+    report_cas_approval_na = db.Column(db.Boolean, default=False)
+    report_sent_customer_na = db.Column(db.Boolean, default=False)
+    report_sent_review_edb_na = db.Column(db.Boolean, default=False)
+    released_in_edb_na = db.Column(db.Boolean, default=False)
+    uploaded_s_drive_reports_na = db.Column(db.Boolean, default=False)
+    uploaded_s_drive_jsa_na = db.Column(db.Boolean, default=False)
+    uploaded_s_drive_photos_na = db.Column(db.Boolean, default=False)
+    uploaded_s_drive_vizio_na = db.Column(db.Boolean, default=False)
+    log_updated_na = db.Column(db.Boolean, default=False)
+
     quoted_hours = db.Column(db.Float, default=0.0)
     incurred_hours = db.Column(db.Float, default=0.0)
 

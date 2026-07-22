@@ -32,49 +32,59 @@ MACHINE_MILESTONE_DEFINITIONS = [
         "key": "cas_approval",
         "label": "Report CAS Approval Date",
         "field": "report_cas_approval_date",
+        "na_field": "report_cas_approval_na",
     },
     {
         "key": "sent_customer",
         "label": "Report Sent to Customer Date",
         "field": "report_sent_customer_date",
+        "na_field": "report_sent_customer_na",
     },
     {
         "key": "sent_review_edb",
         "label": "Report Sent for Review in EDB",
         "field": "report_sent_review_edb_date",
+        "na_field": "report_sent_review_edb_na",
     },
     {
         "key": "released_edb",
         "label": "Released in EDB",
         "field": "released_in_edb_date",
+        "na_field": "released_in_edb_na",
     },
     {
         "key": "uploaded_s_drive_reports",
         "label": "Uploaded to S Drive - REPORT(s)",
         "field": "uploaded_s_drive_reports_date",
+        "na_field": "uploaded_s_drive_reports_na",
     },
     {
         "key": "uploaded_s_drive_jsa",
         "label": "Uploaded to S Drive - JSA",
         "field": "uploaded_s_drive_jsa_date",
+        "na_field": "uploaded_s_drive_jsa_na",
     },
     {
         "key": "uploaded_s_drive_photos",
         "label": "Uploaded to S Drive - PHOTOS",
         "field": "uploaded_s_drive_photos_date",
+        "na_field": "uploaded_s_drive_photos_na",
     },
     {
         "key": "uploaded_s_drive_vizio",
         "label": "Uploaded to S Drive - VIZIO",
         "field": "uploaded_s_drive_vizio_date",
+        "na_field": "uploaded_s_drive_vizio_na",
     },
     {
         "key": "log_updated",
         "label": "Log Updated",
         "field": "log_updated_date",
+        "na_field": "log_updated_na",
     },
 ]
 MILESTONE_FIELD_BY_KEY = {item["key"]: item["field"] for item in MACHINE_MILESTONE_DEFINITIONS}
+MILESTONE_NA_FIELD_BY_KEY = {item["key"]: item["na_field"] for item in MACHINE_MILESTONE_DEFINITIONS}
 
 
 def format_work_type_label_value(work_type: str | None, other_description: str | None = None):
@@ -418,7 +428,10 @@ def create_app():
             return True
         if job.status and job.status != "N/S":
             return True
-        return any(getattr(job, item["field"]) for item in MACHINE_MILESTONE_DEFINITIONS)
+        return any(
+            getattr(job, item["field"]) or getattr(job, item["na_field"], False)
+            for item in MACHINE_MILESTONE_DEFINITIONS
+        )
 
     def sync_machine_jobs_from_work_types(machine: Machine, parsed_work_types):
         desired_keys = {
@@ -527,10 +540,20 @@ def create_app():
 
         for job in machine_jobs:
             per_job = {}
+            all_handled = True
             for item in MACHINE_MILESTONE_DEFINITIONS:
-                per_job[item["key"]] = getattr(job, item["field"])
+                milestone_date = getattr(job, item["field"])
+                is_na = bool(getattr(job, item["na_field"], False))
+                is_handled = bool(milestone_date or is_na)
+                all_handled = all_handled and is_handled
+                per_job[item["key"]] = {
+                    "date": milestone_date,
+                    "is_na": is_na,
+                    "is_handled": is_handled,
+                    "is_missing": job.status == "Completed" and not is_handled,
+                }
             milestone_values[job.id] = per_job
-            row_complete[job.id] = job.status == "Completed"
+            row_complete[job.id] = job.status == "Completed" and all_handled
 
         return milestone_values, row_complete
 
@@ -546,6 +569,43 @@ def create_app():
             row_complete[machine.id] = machine.status == "Completed"
 
         return milestone_values, row_complete
+
+    def project_machine_job_anchor(project_id, job_id):
+        return url_for("project_detail", project_id=project_id) + f"#machine-job-{job_id}"
+
+    def subtract_deleted_machine_job_quote(project: Project, job: MachineJob):
+        if job.parent_job_id:
+            return 0.0
+
+        matching_quote = ProjectJobQuote.query.filter_by(
+            project_id=project.id,
+            work_type=job.work_type,
+            other_description=job.other_description,
+        ).first()
+        if not matching_quote:
+            return 0.0
+
+        matching_base_job_count = (
+            MachineJob.query.join(Machine)
+            .filter(
+                Machine.project_id == project.id,
+                MachineJob.parent_job_id.is_(None),
+                MachineJob.work_type == job.work_type,
+                MachineJob.other_description == job.other_description,
+            )
+            .count()
+        )
+        if matching_base_job_count <= 0:
+            return 0.0
+
+        hours_to_subtract = (matching_quote.quoted_hours or 0.0) / matching_base_job_count
+        matching_quote.quoted_hours = max((matching_quote.quoted_hours or 0.0) - hours_to_subtract, 0.0)
+
+        if matching_quote.quoted_hours <= 0:
+            db.session.delete(matching_quote)
+
+        project.quoted_hours_total = max((project.quoted_hours_total or 0.0) - hours_to_subtract, 0.0)
+        return hours_to_subtract
 
     def get_machine_version_root(machine: Machine):
         return machine.parent_machine_id or machine.id
@@ -1294,8 +1354,14 @@ def create_app():
             target_job.status = status
             target_job.quoted_hours = quoted_hours if quoted_hours is not None else 0.0
             target_job.incurred_hours = incurred_hours if incurred_hours is not None else 0.0
+            na_fields_by_date_field = {
+                item["field"]: item["na_field"]
+                for item in MACHINE_MILESTONE_DEFINITIONS
+            }
             for field, value in milestone_updates.items():
                 setattr(target_job, field, value)
+                if value:
+                    setattr(target_job, na_fields_by_date_field[field], False)
 
         MachineWorkType.query.filter_by(machine_id=machine.id).delete()
         for wt in parsed_work_types:
@@ -1358,16 +1424,40 @@ def create_app():
             .first_or_404()
         )
         field = MILESTONE_FIELD_BY_KEY.get(milestone_key)
+        na_field = MILESTONE_NA_FIELD_BY_KEY.get(milestone_key)
 
-        if not field:
+        if not field or not na_field:
             flash("Invalid milestone field.", "error")
-            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+            return redirect(project_machine_job_anchor(project.id, job.id))
 
         setattr(job, field, datetime.today().date())
+        setattr(job, na_field, False)
         db.session.commit()
 
         flash("Job milestone updated to today.", "success")
-        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+        return redirect(project_machine_job_anchor(project.id, job.id))
+
+    @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/mark_na", methods=["POST"])
+    def mark_machine_job_milestone_na(project_id, job_id, milestone_key):
+        project = Project.query.get_or_404(project_id)
+        job = (
+            MachineJob.query.join(Machine)
+            .filter(MachineJob.id == job_id, Machine.project_id == project.id)
+            .first_or_404()
+        )
+        field = MILESTONE_FIELD_BY_KEY.get(milestone_key)
+        na_field = MILESTONE_NA_FIELD_BY_KEY.get(milestone_key)
+
+        if not field or not na_field:
+            flash("Invalid milestone field.", "error")
+            return redirect(project_machine_job_anchor(project.id, job.id))
+
+        setattr(job, field, None)
+        setattr(job, na_field, True)
+        db.session.commit()
+
+        flash("Job milestone marked N/A.", "success")
+        return redirect(project_machine_job_anchor(project.id, job.id))
 
     @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/clear", methods=["POST"])
     def clear_machine_job_milestone(project_id, job_id, milestone_key):
@@ -1378,16 +1468,18 @@ def create_app():
             .first_or_404()
         )
         field = MILESTONE_FIELD_BY_KEY.get(milestone_key)
+        na_field = MILESTONE_NA_FIELD_BY_KEY.get(milestone_key)
 
-        if not field:
+        if not field or not na_field:
             flash("Invalid milestone field.", "error")
-            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+            return redirect(project_machine_job_anchor(project.id, job.id))
 
         setattr(job, field, None)
+        setattr(job, na_field, False)
         db.session.commit()
 
         flash("Job milestone cleared.", "success")
-        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+        return redirect(project_machine_job_anchor(project.id, job.id))
 
     @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/delete", methods=["POST"])
     def delete_machine_job(project_id, job_id):
@@ -1410,10 +1502,14 @@ def create_app():
             work_type=job.work_type,
             other_description=job.other_description,
         ).delete()
+        removed_quote_hours = subtract_deleted_machine_job_quote(project, job)
         db.session.delete(job)
         db.session.commit()
 
-        flash("Unused machine job removed.", "success")
+        if removed_quote_hours > 0:
+            flash(f"Unused machine job removed. Project quoted hours reduced by {removed_quote_hours:.1f}h.", "success")
+        else:
+            flash("Unused machine job removed.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/machines/<int:machine_id>/milestones/<string:milestone_key>/set_today", methods=["POST"])
@@ -1982,6 +2078,14 @@ def ensure_machine_job_schema():
     if "incurred_hours" not in machine_job_cols:
         db.session.execute(text("ALTER TABLE machine_jobs ADD COLUMN incurred_hours FLOAT DEFAULT 0.0"))
         db.session.commit()
+        machine_job_cols.add("incurred_hours")
+
+    for item in MACHINE_MILESTONE_DEFINITIONS:
+        na_field = item["na_field"]
+        if na_field not in machine_job_cols:
+            db.session.execute(text(f"ALTER TABLE machine_jobs ADD COLUMN {na_field} BOOLEAN DEFAULT 0"))
+            db.session.commit()
+            machine_job_cols.add(na_field)
 
     # Backfill defaults for existing rows
     if "version_number" in machine_job_cols:
