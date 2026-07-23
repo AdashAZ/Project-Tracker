@@ -23,6 +23,302 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ---------------------------
+  // Daily Activity Tracker
+  // ---------------------------
+  const dailyActivityList = document.getElementById("daily-activity-list");
+  const dailyActivityTemplate = document.getElementById("daily-activity-row-template");
+  const dailyActivityForm = document.getElementById("daily-activity-form");
+  const dailyEntriesPayload = document.getElementById("daily-activity-entries-payload");
+  const dailyAddRowBtn = document.getElementById("daily-add-row-btn");
+  const dailyProjectOptionsScript = document.getElementById("daily-activity-project-options");
+  const dailyExistingEntriesScript = document.getElementById("daily-activity-existing-entries");
+  const dailyDefaultAdpScript = document.getElementById("daily-activity-default-adp");
+
+  if (dailyActivityList && dailyActivityTemplate) {
+    let dailyProjects = [];
+    let existingEntries = [];
+    let defaultAdp = "600-303100";
+
+    try {
+      dailyProjects = JSON.parse(dailyProjectOptionsScript?.textContent || "[]");
+    } catch {
+      dailyProjects = [];
+    }
+    try {
+      existingEntries = JSON.parse(dailyExistingEntriesScript?.textContent || "[]");
+    } catch {
+      existingEntries = [];
+    }
+    try {
+      defaultAdp = JSON.parse(dailyDefaultAdpScript?.textContent || JSON.stringify(defaultAdp));
+    } catch {
+      defaultAdp = "600-303100";
+    }
+
+    const getRowData = (row) => ({
+      start_time: row.querySelector(".daily-start-time")?.value || "",
+      duration_hours: row.querySelector(".daily-duration")?.value || "",
+      category: row.querySelector(".daily-category")?.value || "",
+      project_id: row.querySelector(".daily-project-id")?.value || "",
+      machine_id: row.querySelector(".daily-machine-id")?.value || "",
+      machine_job_id: row.querySelector(".daily-machine-job-id")?.value || "",
+      subcategory: row.querySelector(".daily-subcategory")?.value || "",
+      adp_number: row.querySelector(".daily-adp-number")?.value || "",
+      notes: row.querySelector(".daily-notes")?.value || "",
+    });
+
+    const formatHours = (hours) => Number(hours || 0).toFixed(2);
+
+    const findProject = (projectId) => dailyProjects.find((project) => String(project.id) === String(projectId));
+    const findMachine = (project, machineId) => (project?.machines || []).find((machine) => String(machine.id) === String(machineId));
+    const findJob = (machine, jobId) => (machine?.jobs || []).find((job) => String(job.id) === String(jobId));
+
+    const renderSearchResults = (container, options, query, onSelect) => {
+      if (!container) return;
+      const normalized = (query || "").toLowerCase().trim();
+      const matches = options
+        .filter((option) => !normalized || option.label.toLowerCase().includes(normalized))
+        .slice(0, 8);
+      container.innerHTML = "";
+      container.hidden = matches.length === 0;
+      matches.forEach((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "daily-search-option";
+        button.textContent = option.label;
+        button.addEventListener("click", () => {
+          onSelect(option);
+          container.hidden = true;
+        });
+        container.appendChild(button);
+      });
+    };
+
+    const bindSearchInput = (row, inputSelector, hiddenSelector, getOptions, onSelect) => {
+      const input = row.querySelector(inputSelector);
+      const hidden = row.querySelector(hiddenSelector);
+      const results = input?.parentElement?.querySelector(".daily-search-results");
+      if (!input || !hidden || !results) return;
+
+      input.addEventListener("input", () => {
+        hidden.value = "";
+        renderSearchResults(results, getOptions(), input.value, (option) => {
+          input.value = option.label;
+          hidden.value = option.id;
+          onSelect(option);
+          updateDailyTotals();
+        });
+        updateDailyTotals();
+      });
+
+      input.addEventListener("focus", () => {
+        renderSearchResults(results, getOptions(), input.value, (option) => {
+          input.value = option.label;
+          hidden.value = option.id;
+          onSelect(option);
+          updateDailyTotals();
+        });
+      });
+    };
+
+    const setProject = (row, projectId) => {
+      const project = findProject(projectId);
+      row.querySelector(".daily-project-id").value = project?.id || "";
+      row.querySelector(".daily-project-search").value = project?.label || "";
+      row.querySelector(".daily-machine-id").value = "";
+      row.querySelector(".daily-machine-search").value = "";
+      row.querySelector(".daily-machine-job-id").value = "";
+      row.querySelector(".daily-job-search").value = "";
+    };
+
+    const setMachine = (row, machineId) => {
+      const project = findProject(row.querySelector(".daily-project-id")?.value);
+      const machine = findMachine(project, machineId);
+      row.querySelector(".daily-machine-id").value = machine?.id || "";
+      row.querySelector(".daily-machine-search").value = machine?.label || "";
+      row.querySelector(".daily-machine-job-id").value = "";
+      row.querySelector(".daily-job-search").value = "";
+    };
+
+    const setJob = (row, jobId) => {
+      const project = findProject(row.querySelector(".daily-project-id")?.value);
+      const machine = findMachine(project, row.querySelector(".daily-machine-id")?.value);
+      const job = findJob(machine, jobId);
+      row.querySelector(".daily-machine-job-id").value = job?.id || "";
+      row.querySelector(".daily-job-search").value = job?.label || "";
+    };
+
+    const refreshRowVisibility = (row) => {
+      const category = row.querySelector(".daily-category")?.value || "";
+      const isProject = category === "Project";
+      const isSalesSupport = category === "Sales Support";
+      row.querySelectorAll(".daily-project-field, .daily-machine-field, .daily-job-field").forEach((field) => {
+        field.hidden = !isProject;
+      });
+      const adpField = row.querySelector(".daily-adp-field");
+      if (adpField) adpField.hidden = !isSalesSupport;
+      const adpInput = row.querySelector(".daily-adp-number");
+      if (isSalesSupport && adpInput && !adpInput.value) adpInput.value = defaultAdp;
+      if (!isProject) {
+        row.querySelector(".daily-project-id").value = "";
+        row.querySelector(".daily-project-search").value = "";
+        row.querySelector(".daily-machine-id").value = "";
+        row.querySelector(".daily-machine-search").value = "";
+        row.querySelector(".daily-machine-job-id").value = "";
+        row.querySelector(".daily-job-search").value = "";
+      }
+    };
+
+    const updateEndTime = (row) => {
+      const start = row.querySelector(".daily-start-time")?.value || "";
+      const duration = Number(row.querySelector(".daily-duration")?.value || 0);
+      const endInput = row.querySelector(".daily-end-time");
+      if (!endInput) return;
+      if (!start || !Number.isFinite(duration) || duration <= 0) {
+        endInput.value = "";
+        return;
+      }
+      const [hour, minute] = start.split(":").map(Number);
+      const end = new Date(2000, 0, 1, hour, minute + Math.round(duration * 60));
+      endInput.value = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
+    };
+
+    const renderSummaryList = (el, totals) => {
+      if (!el) return;
+      const entries = Array.from(totals.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+      el.innerHTML = "";
+      if (entries.length === 0) {
+        el.innerHTML = "<div><span>No hours</span><strong>0.00h</strong></div>";
+        return;
+      }
+      entries.forEach(([label, hours]) => {
+        const row = document.createElement("div");
+        row.innerHTML = `<span>${label}</span><strong>${formatHours(hours)}h</strong>`;
+        el.appendChild(row);
+      });
+    };
+
+    function updateDailyTotals() {
+      const rows = Array.from(dailyActivityList.querySelectorAll("[data-daily-row]"));
+      let total = 0;
+      const byCategory = new Map();
+      const byProject = new Map();
+      const byDetail = new Map();
+
+      rows.forEach((row) => {
+        updateEndTime(row);
+        const data = getRowData(row);
+        const hours = Number(data.duration_hours);
+        if (!Number.isFinite(hours) || hours <= 0) return;
+        total += hours;
+        const category = data.category || "Uncategorized";
+        byCategory.set(category, (byCategory.get(category) || 0) + hours);
+
+        if (data.category === "Project") {
+          const projectLabel = row.querySelector(".daily-project-search")?.value || "Project";
+          const machineLabel = row.querySelector(".daily-machine-search")?.value || "Machine";
+          const jobLabel = row.querySelector(".daily-job-search")?.value || "Job";
+          byProject.set(projectLabel, (byProject.get(projectLabel) || 0) + hours);
+          const detailLabel = `${projectLabel} / ${machineLabel} / ${jobLabel}`;
+          byDetail.set(detailLabel, (byDetail.get(detailLabel) || 0) + hours);
+        }
+      });
+
+      const totalEl = document.getElementById("daily-total-hours");
+      if (totalEl) totalEl.textContent = formatHours(total);
+      renderSummaryList(document.getElementById("daily-category-totals"), byCategory);
+      renderSummaryList(document.getElementById("daily-project-totals"), byProject);
+      renderSummaryList(document.getElementById("daily-detail-totals"), byDetail);
+    }
+
+    const applyRowData = (row, data) => {
+      row.querySelector(".daily-start-time").value = data.start_time || "";
+      row.querySelector(".daily-duration").value = data.duration_hours || "";
+      row.querySelector(".daily-category").value = data.category || "";
+      row.querySelector(".daily-subcategory").value = data.subcategory || "";
+      row.querySelector(".daily-adp-number").value = data.adp_number || defaultAdp;
+      row.querySelector(".daily-notes").value = data.notes || "";
+      if (data.project_id) setProject(row, data.project_id);
+      if (data.machine_id) setMachine(row, data.machine_id);
+      if (data.machine_job_id) setJob(row, data.machine_job_id);
+      refreshRowVisibility(row);
+      updateEndTime(row);
+    };
+
+    const addDailyRow = (data = {}) => {
+      const row = dailyActivityTemplate.content.firstElementChild.cloneNode(true);
+      dailyActivityList.appendChild(row);
+
+      bindSearchInput(row, ".daily-project-search", ".daily-project-id", () => dailyProjects, (project) => setProject(row, project.id));
+      bindSearchInput(
+        row,
+        ".daily-machine-search",
+        ".daily-machine-id",
+        () => findProject(row.querySelector(".daily-project-id")?.value)?.machines || [],
+        (machine) => setMachine(row, machine.id)
+      );
+      bindSearchInput(
+        row,
+        ".daily-job-search",
+        ".daily-machine-job-id",
+        () => {
+          const project = findProject(row.querySelector(".daily-project-id")?.value);
+          const machine = findMachine(project, row.querySelector(".daily-machine-id")?.value);
+          return machine?.jobs || [];
+        },
+        (job) => setJob(row, job.id)
+      );
+
+      row.querySelectorAll("input, select").forEach((input) => {
+        input.addEventListener("input", updateDailyTotals);
+        input.addEventListener("change", updateDailyTotals);
+      });
+      row.querySelector(".daily-category")?.addEventListener("change", () => {
+        refreshRowVisibility(row);
+        updateDailyTotals();
+      });
+      row.querySelector("[data-delete-daily-row]")?.addEventListener("click", () => {
+        row.remove();
+        if (dailyActivityList.querySelectorAll("[data-daily-row]").length === 0) addDailyRow();
+        updateDailyTotals();
+      });
+      row.querySelector("[data-duplicate-daily-row]")?.addEventListener("click", () => {
+        addDailyRow(getRowData(row));
+        updateDailyTotals();
+      });
+
+      applyRowData(row, data);
+      return row;
+    };
+
+    if (existingEntries.length > 0) {
+      existingEntries.forEach((entry) => addDailyRow(entry));
+    } else {
+      addDailyRow({ duration_hours: "0.50", category: "Project" });
+    }
+
+    dailyAddRowBtn?.addEventListener("click", () => {
+      addDailyRow({ duration_hours: "0.50", category: "Project" });
+      updateDailyTotals();
+    });
+
+    dailyActivityForm?.addEventListener("submit", () => {
+      const payload = Array.from(dailyActivityList.querySelectorAll("[data-daily-row]")).map(getRowData);
+      if (dailyEntriesPayload) dailyEntriesPayload.value = JSON.stringify(payload);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".daily-field")) {
+        document.querySelectorAll(".daily-search-results").forEach((result) => {
+          result.hidden = true;
+        });
+      }
+    });
+
+    updateDailyTotals();
+  }
+
+  // ---------------------------
   // Dashboard: status filter + search preview
   // ---------------------------
   const statusFilter = document.getElementById("status-filter");

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Activity Review{% endblock %}
+
+{% block content %}
+<div class="daily-activity-page">
+  <div class="section-title-row">
+    <h1>Weekly Activity Review</h1>
+    <span class="section-caption">{{ week_start.isoformat() }} through {{ week_end.isoformat() }}</span>
+  </div>
+
+  <div class="daily-activity-toolbar">
+    <form method="get" action="{{ url_for('daily_activity_week') }}" class="daily-date-form">
+      <label for="week-date">Week Of</label>
+      <input type="date" id="week-date" name="date" value="{{ week_start.isoformat() }}">
+      <button type="submit" class="btn-mini">Load Week</button>
+    </form>
+    <a class="btn-secondary" href="{{ url_for('daily_activity', date=week_start.isoformat()) }}">Daily Entry</a>
+  </div>
+
+  <div class="daily-activity-layout">
+    <section class="daily-activity-main">
+      {% for day in week_days %}
+      {% set log = logs_by_date.get(day) %}
+      <div class="week-day-block">
+        <div class="week-day-header">
+          <div>
+            <h2>{{ day.strftime('%A') }}</h2>
+            <span>{{ day.isoformat() }}</span>
+          </div>
+          <div class="week-day-actions">
+            <span class="status-badge">{{ log.status if log else 'Draft' }}</span>
+            <a class="btn-mini" href="{{ url_for('daily_activity', date=day.isoformat()) }}">Edit Day</a>
+          </div>
+        </div>
+
+        {% if log and log.entries %}
+        <div class="table-wrap daily-week-table-wrap">
+          <table class="daily-week-table">
+            <thead>
+              <tr>
+                <th>Start</th>
+                <th>Hours</th>
+                <th>Category</th>
+                <th>Project / Machine / Job</th>
+                <th>ADP / Subcategory</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in log.entries %}
+              <tr>
+                <td>{{ entry.start_time.strftime('%H:%M') if entry.start_time else '' }}</td>
+                <td>{{ "%.2f"|format(entry.duration_hours or 0) }}</td>
+                <td>{{ entry.category }}</td>
+                <td>
+                  {% if entry.project %}
+                    {{ entry.project.na_number or entry.project.edb_number or ('Project ' ~ entry.project_id) }}
+                    {% if entry.machine %} / {{ entry.machine.machine_name }}{% endif %}
+                    {% if entry.machine_job %} / {{ entry.machine_job.work_type }}{% endif %}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>
+                  {% if entry.adp_number %}{{ entry.adp_number }}{% endif %}
+                  {% if entry.subcategory %}{{ ' - ' if entry.adp_number else '' }}{{ entry.subcategory }}{% endif %}
+                </td>
+                <td>{{ entry.notes or '' }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="daily-empty-state">No entries saved.</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </section>
+
+    <aside class="daily-summary-panel">
+      <h2>Week Totals</h2>
+      <div class="daily-total-large">{{ "%.2f"|format(grand_total) }}h</div>
+      <div class="daily-summary-group">
+        <h3>By Category</h3>
+        <div class="daily-summary-list">
+          {% for label, hours in category_totals.items() %}
+          <div><span>{{ label }}</span><strong>{{ "%.2f"|format(hours) }}h</strong></div>
+          {% else %}
+          <div><span>No hours</span><strong>0.00h</strong></div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="daily-summary-group">
+        <h3>By Project</h3>
+        <div class="daily-summary-list">
+          {% for label, hours in project_totals.items() %}
+          <div><span>{{ label }}</span><strong>{{ "%.2f"|format(hours) }}h</strong></div>
+          {% else %}
+          <div><span>No project hours</span><strong>0.00h</strong></div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <form method="post" action="{{ url_for('submit_daily_activity_week') }}" onsubmit="return confirm('Submit this Monday-Sunday week to project time entries?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="week_start" value="{{ week_start.isoformat() }}">
+        <button type="submit">Submit Hours to Projects</button>
+      </form>
+    </aside>
+  </div>
+</div>
+{% endblock %}

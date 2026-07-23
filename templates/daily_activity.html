@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Activity Tracker{% endblock %}
+
+{% block content %}
+<div class="daily-activity-page">
+  <div class="section-title-row">
+    <h1>Daily Activity Tracker</h1>
+    <span class="section-caption">Structured daily notepad for project and ADP hour tracking</span>
+  </div>
+
+  <div class="daily-activity-toolbar">
+    <form method="get" action="{{ url_for('daily_activity') }}" class="daily-date-form">
+      <label for="daily-activity-date">Date</label>
+      <input type="date" id="daily-activity-date" name="date" value="{{ selected_date.isoformat() }}">
+      <button type="submit" class="btn-mini">Load</button>
+    </form>
+    <a class="btn-secondary" href="{{ url_for('daily_activity_week', date=selected_date.isoformat()) }}">Weekly Review</a>
+  </div>
+
+  <form method="post" action="{{ url_for('save_daily_activity') }}" id="daily-activity-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+    <input type="hidden" name="entries_payload" id="daily-activity-entries-payload" value="[]">
+
+    <div class="daily-activity-layout">
+      <section class="daily-activity-main">
+        <div class="daily-activity-status-row">
+          <span class="status-badge">{{ log.status if log else 'Draft' }}</span>
+          <span>{{ "%.2f"|format(log.total_hours if log else 0) }}h saved for {{ selected_date.isoformat() }}</span>
+        </div>
+
+        <div class="daily-activity-list" id="daily-activity-list"></div>
+
+        <div class="daily-activity-actions">
+          <button type="button" class="btn-secondary" id="daily-add-row-btn">Add Row</button>
+          <button type="submit">Save Draft</button>
+        </div>
+      </section>
+
+      <aside class="daily-summary-panel">
+        <h2>Daily Totals</h2>
+        <div class="daily-total-large"><span id="daily-total-hours">0.00</span>h</div>
+        <div class="daily-summary-group">
+          <h3>By Category</h3>
+          <div id="daily-category-totals" class="daily-summary-list"></div>
+        </div>
+        <div class="daily-summary-group">
+          <h3>By Project</h3>
+          <div id="daily-project-totals" class="daily-summary-list"></div>
+        </div>
+        <div class="daily-summary-group">
+          <h3>Project / Machine / Job</h3>
+          <div id="daily-detail-totals" class="daily-summary-list"></div>
+        </div>
+      </aside>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('clear_daily_activity') }}" class="daily-clear-form" onsubmit="return confirm('Clear this day? Submitted project hours for this day will be removed.');">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">
+    <button type="submit" class="btn-link-danger">Clear Day</button>
+  </form>
+</div>
+
+<template id="daily-activity-row-template">
+  <div class="daily-activity-row" data-daily-row>
+    <div class="daily-field daily-field-start">
+      <label>Start</label>
+      <input type="time" class="daily-start-time">
+    </div>
+    <div class="daily-field daily-field-duration">
+      <label>Duration</label>
+      <input type="number" min="0" step="0.25" class="daily-duration" placeholder="0.50">
+    </div>
+    <div class="daily-field daily-field-end">
+      <label>End</label>
+      <input type="text" class="daily-end-time" readonly>
+    </div>
+    <div class="daily-field">
+      <label>Category</label>
+      <select class="daily-category">
+        <option value="">Select</option>
+        {% for category in categories %}
+        <option value="{{ category }}">{{ category }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="daily-field daily-project-field">
+      <label>Project</label>
+      <input type="text" class="daily-search daily-project-search" placeholder="Search projects">
+      <input type="hidden" class="daily-project-id">
+      <div class="daily-search-results"></div>
+    </div>
+    <div class="daily-field daily-machine-field">
+      <label>Machine</label>
+      <input type="text" class="daily-search daily-machine-search" placeholder="Select project first">
+      <input type="hidden" class="daily-machine-id">
+      <div class="daily-search-results"></div>
+    </div>
+    <div class="daily-field daily-job-field">
+      <label>Job</label>
+      <input type="text" class="daily-search daily-job-search" placeholder="Select machine first">
+      <input type="hidden" class="daily-machine-job-id">
+      <div class="daily-search-results"></div>
+    </div>
+    <div class="daily-field daily-adp-field">
+      <label>ADP #</label>
+      <input type="text" class="daily-adp-number" value="{{ sales_support_adp_number }}">
+    </div>
+    <div class="daily-field">
+      <label>Subcategory</label>
+      <input type="text" class="daily-subcategory" placeholder="Short note">
+    </div>
+    <div class="daily-field daily-notes-field">
+      <label>Notes</label>
+      <input type="text" class="daily-notes" placeholder="Work description">
+    </div>
+    <div class="daily-row-actions">
+      <button type="button" class="btn-mini" data-duplicate-daily-row>Duplicate</button>
+      <button type="button" class="btn-mini btn-link-danger" data-delete-daily-row>Delete</button>
+    </div>
+  </div>
+</template>
+
+<script id="daily-activity-project-options" type="application/json">{{ project_options | tojson }}</script>
+<script id="daily-activity-existing-entries" type="application/json">{{ entries | tojson }}</script>
+<script id="daily-activity-default-adp" type="application/json">{{ sales_support_adp_number | tojson }}</script>
+{% endblock %}

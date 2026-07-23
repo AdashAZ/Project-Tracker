@@ -235,6 +235,85 @@ class TimeEntry(db.Model):
     machine_job = db.relationship("MachineJob", backref="time_entries")
 
 
+class DailyActivityLog(db.Model):
+    __tablename__ = "daily_activity_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False, unique=True)
+    status = db.Column(db.String(50), default="Draft")
+    total_hours = db.Column(db.Float, default=0.0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    posted_at = db.Column(db.DateTime, nullable=True)
+
+    entries = db.relationship(
+        "DailyActivityEntry",
+        backref="daily_log",
+        lazy=True,
+        cascade="all, delete-orphan",
+        order_by="DailyActivityEntry.entry_order",
+    )
+    postings = db.relationship(
+        "DailyActivityPosting",
+        backref="daily_log",
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
+
+
+class DailyActivityEntry(db.Model):
+    __tablename__ = "daily_activity_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    daily_log_id = db.Column(
+        db.Integer,
+        db.ForeignKey("daily_activity_logs.id"),
+        nullable=False
+    )
+    entry_order = db.Column(db.Integer, default=0)
+    start_time = db.Column(db.Time, nullable=True)
+    end_time = db.Column(db.Time, nullable=True)
+    duration_hours = db.Column(db.Float, nullable=False, default=0.0)
+    category = db.Column(db.String(50), nullable=False)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=True)
+    machine_id = db.Column(db.Integer, db.ForeignKey("machines.id"), nullable=True)
+    machine_job_id = db.Column(db.Integer, db.ForeignKey("machine_jobs.id"), nullable=True)
+    subcategory = db.Column(db.String(255))
+    adp_number = db.Column(db.String(50))
+    notes = db.Column(db.Text)
+    is_billable = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = db.relationship("Project")
+    machine = db.relationship("Machine")
+    machine_job = db.relationship("MachineJob")
+
+
+class DailyActivityPosting(db.Model):
+    __tablename__ = "daily_activity_postings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    daily_log_id = db.Column(
+        db.Integer,
+        db.ForeignKey("daily_activity_logs.id"),
+        nullable=False
+    )
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False)
+    machine_id = db.Column(db.Integer, db.ForeignKey("machines.id"), nullable=False)
+    machine_job_id = db.Column(db.Integer, db.ForeignKey("machine_jobs.id"), nullable=False)
+    category = db.Column(db.String(50), nullable=False, default="Project")
+    duration_hours = db.Column(db.Float, nullable=False, default=0.0)
+    notes_summary = db.Column(db.Text)
+    time_entry_id = db.Column(db.Integer, db.ForeignKey("time_entries.id"), nullable=True)
+    posted_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    project = db.relationship("Project")
+    machine = db.relationship("Machine")
+    machine_job = db.relationship("MachineJob")
+    time_entry = db.relationship("TimeEntry")
+
+
 class Comment(db.Model):
     __tablename__ = "comments"
 

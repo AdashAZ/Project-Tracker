@@ -1,5 +1,5 @@
 # app.py
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 import json
 import re
 import os
@@ -20,13 +20,28 @@ from sqlalchemy import text, case
 from urllib.parse import quote
 from markupsafe import Markup, escape
 
-from models import db, Project, ProductLine, ProjectJobQuote, Machine, MachineJob, TimeEntry, Comment, MachineWorkType
+from models import (
+    db,
+    Project,
+    ProductLine,
+    ProjectJobQuote,
+    Machine,
+    MachineJob,
+    TimeEntry,
+    DailyActivityLog,
+    DailyActivityEntry,
+    DailyActivityPosting,
+    Comment,
+    MachineWorkType,
+)
 from admin import admin_bp
 from sqlalchemy import case, desc
 
 ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
 MACHINE_STATUS_OPTIONS = ["N/S", "WIP", "Stopped", "In Review", "Completed"]
 WORK_TYPE_OPTIONS = ["RA", "SC", "VV", "SOL", "Other"]
+DAILY_ACTIVITY_CATEGORIES = ["Project", "Admin", "INM", "Sales Support", "Training", "Travel", "Other"]
+SALES_SUPPORT_ADP_NUMBER = "600-303100"
 MACHINE_MILESTONE_DEFINITIONS = [
     {
         "key": "cas_approval",
@@ -140,6 +155,14 @@ def create_app():
         except ValueError:
             return None
 
+    def parse_time_input(value: str | None):
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%H:%M").time()
+        except ValueError:
+            return None
+
     def parse_float_input(value: str | None):
         if value in (None, ""):
             return None
@@ -147,6 +170,12 @@ def create_app():
             return float(value)
         except ValueError:
             return None
+
+    def get_week_start(selected_date: date):
+        return selected_date - timedelta(days=selected_date.weekday())
+
+    def combine_notes(parts):
+        return "; ".join(part for part in parts if part)
 
     def format_work_type_label(work_type: str, other_description: str | None = None):
         return format_work_type_label_value(work_type, other_description)
@@ -423,6 +452,184 @@ def create_app():
         if not job:
             return None, None, "Invalid machine job selection."
         return job.id, job, None
+
+    def get_daily_activity_project_options():
+        projects = (
+            Project.query
+            .filter(Project.status != "Completed")
+            .order_by(Project.customer.asc(), Project.na_number.asc(), Project.id.asc())
+            .all()
+        )
+        options = []
+        for project in projects:
+            project_ref = project.na_number or project.edb_number or f"Project {project.id}"
+            machines = []
+            for machine in sorted(project.machines, key=lambda item: (item.product_line.name if item.product_line else "", item.machine_name, item.id)):
+                jobs = []
+                for job in sorted(machine.jobs, key=lambda item: (item.work_type or "", item.other_description or "", item.version_number or 1, item.id)):
+                    jobs.append(
+                        {
+                            "id": job.id,
+                            "label": f"{get_machine_job_version_label_value(job)} - {format_work_type_label(job.work_type, job.other_description)}",
+                        }
+                    )
+                machines.append(
+                    {
+                        "id": machine.id,
+                        "label": f"{machine.product_line.name if machine.product_line else 'General'} - {machine.machine_name} - {machine.version_label}",
+                        "jobs": jobs,
+                    }
+                )
+            options.append(
+                {
+                    "id": project.id,
+                    "label": f"{project_ref} - {project.customer or 'No customer'} - {project.location or 'No location'}",
+                    "machines": machines,
+                }
+            )
+        return options
+
+    def parse_daily_activity_entries_payload(payload_raw: str | None, log_date: date, strict: bool = False):
+        if not payload_raw:
+            return [], []
+        try:
+            payload = json.loads(payload_raw)
+        except (TypeError, ValueError):
+            return [], ["Invalid daily activity payload."]
+        if not isinstance(payload, list):
+            return [], ["Invalid daily activity payload."]
+
+        parsed = []
+        errors = []
+        for index, item in enumerate(payload, start=1):
+            if not isinstance(item, dict):
+                errors.append(f"Row {index}: invalid row data.")
+                continue
+
+            category = (item.get("category") or "").strip()
+            duration_raw = (item.get("duration_hours") or "").strip()
+            start_raw = (item.get("start_time") or "").strip()
+            subcategory = (item.get("subcategory") or "").strip()
+            notes = (item.get("notes") or "").strip()
+            project_id_raw = (item.get("project_id") or "").strip()
+            machine_id_raw = (item.get("machine_id") or "").strip()
+            machine_job_id_raw = (item.get("machine_job_id") or "").strip()
+            adp_number = (item.get("adp_number") or "").strip()
+
+            if not any([category, duration_raw, start_raw, subcategory, notes, project_id_raw, machine_id_raw, machine_job_id_raw, adp_number]):
+                continue
+
+            row_errors = []
+            if category not in DAILY_ACTIVITY_CATEGORIES:
+                row_errors.append("select a valid category")
+
+            duration = parse_float_input(duration_raw)
+            if duration is None or duration <= 0:
+                row_errors.append("enter a duration greater than 0")
+
+            start_time = parse_time_input(start_raw)
+            if start_raw and start_time is None:
+                row_errors.append("enter a valid start time")
+
+            end_time = None
+            if start_time and duration is not None:
+                end_dt = datetime.combine(log_date, start_time) + timedelta(minutes=round(duration * 60))
+                end_time = end_dt.time()
+
+            project_id = None
+            machine_id = None
+            machine_job_id = None
+            machine_job = None
+            is_billable = category == "Project"
+
+            if category == "Project":
+                if not project_id_raw:
+                    row_errors.append("select a project")
+                if not machine_id_raw:
+                    row_errors.append("select a machine")
+                if not machine_job_id_raw:
+                    row_errors.append("select a job type")
+                if project_id_raw and machine_id_raw and machine_job_id_raw:
+                    try:
+                        project_id = int(project_id_raw)
+                        machine_id = int(machine_id_raw)
+                        machine_job_id = int(machine_job_id_raw)
+                    except ValueError:
+                        row_errors.append("select valid project, machine, and job values")
+                    else:
+                        machine_job = (
+                            MachineJob.query.join(Machine).join(Project)
+                            .filter(
+                                MachineJob.id == machine_job_id,
+                                MachineJob.machine_id == machine_id,
+                                Machine.project_id == project_id,
+                                Project.status != "Completed",
+                            )
+                            .first()
+                        )
+                        if machine_job is None:
+                            row_errors.append("select a valid active project machine/job")
+            elif category == "Sales Support":
+                adp_number = adp_number or SALES_SUPPORT_ADP_NUMBER
+                if not adp_number:
+                    row_errors.append("enter an ADP number")
+
+            if row_errors and strict:
+                errors.append(f"Row {index}: {', '.join(row_errors)}.")
+            elif row_errors and not strict:
+                errors.append(f"Row {index}: {', '.join(row_errors)}.")
+
+            parsed.append(
+                {
+                    "entry_order": len(parsed) + 1,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "duration_hours": duration or 0.0,
+                    "category": category if category in DAILY_ACTIVITY_CATEGORIES else "",
+                    "project_id": project_id,
+                    "machine_id": machine_id,
+                    "machine_job_id": machine_job_id,
+                    "machine_job": machine_job,
+                    "subcategory": subcategory or None,
+                    "adp_number": adp_number or None,
+                    "notes": notes or None,
+                    "is_billable": is_billable,
+                }
+            )
+
+        return parsed, errors
+
+    def save_daily_activity_entries(log: DailyActivityLog, parsed_entries):
+        for entry in list(log.entries):
+            db.session.delete(entry)
+        db.session.flush()
+        for item in parsed_entries:
+            db.session.add(
+                DailyActivityEntry(
+                    daily_log_id=log.id,
+                    entry_order=item["entry_order"],
+                    start_time=item["start_time"],
+                    end_time=item["end_time"],
+                    duration_hours=item["duration_hours"],
+                    category=item["category"],
+                    project_id=item["project_id"],
+                    machine_id=item["machine_id"],
+                    machine_job_id=item["machine_job_id"],
+                    subcategory=item["subcategory"],
+                    adp_number=item["adp_number"],
+                    notes=item["notes"],
+                    is_billable=item["is_billable"],
+                )
+            )
+        log.total_hours = sum(item["duration_hours"] for item in parsed_entries)
+        log.updated_at = datetime.utcnow()
+
+    def update_project_incurred_total(project_id: int):
+        project = Project.query.get(project_id)
+        if not project:
+            return
+        total = sum(entry.hours or 0.0 for entry in TimeEntry.query.filter_by(project_id=project_id).all())
+        project.incurred_hours_total = total
 
     def machine_job_has_history(job: MachineJob):
         if getattr(job, "versions", None):
@@ -783,6 +990,236 @@ def create_app():
             flash("Failed to open path.", "error")
 
         return redirect(request.referrer or url_for("dashboard"))
+
+    @app.route("/daily-activity")
+    def daily_activity():
+        selected_date = parse_date_input(request.args.get("date")) or date.today()
+        log = DailyActivityLog.query.filter_by(date=selected_date).first()
+        entries = []
+        if log:
+            for entry in log.entries:
+                entries.append(
+                    {
+                        "start_time": entry.start_time.strftime("%H:%M") if entry.start_time else "",
+                        "end_time": entry.end_time.strftime("%H:%M") if entry.end_time else "",
+                        "duration_hours": entry.duration_hours or 0.0,
+                        "category": entry.category or "",
+                        "project_id": entry.project_id or "",
+                        "machine_id": entry.machine_id or "",
+                        "machine_job_id": entry.machine_job_id or "",
+                        "subcategory": entry.subcategory or "",
+                        "adp_number": entry.adp_number or "",
+                        "notes": entry.notes or "",
+                    }
+                )
+
+        return render_template(
+            "daily_activity.html",
+            selected_date=selected_date,
+            week_start=get_week_start(selected_date),
+            log=log,
+            entries=entries,
+            categories=DAILY_ACTIVITY_CATEGORIES,
+            sales_support_adp_number=SALES_SUPPORT_ADP_NUMBER,
+            project_options=get_daily_activity_project_options(),
+        )
+
+    @app.route("/daily-activity/save", methods=["POST"])
+    def save_daily_activity():
+        selected_date = parse_date_input(request.form.get("date")) or date.today()
+        parsed_entries, errors = parse_daily_activity_entries_payload(
+            request.form.get("entries_payload"),
+            selected_date,
+            strict=False,
+        )
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return redirect(url_for("daily_activity", date=selected_date.isoformat()))
+
+        log = DailyActivityLog.query.filter_by(date=selected_date).first()
+        if not log:
+            log = DailyActivityLog(date=selected_date, status="Draft")
+            db.session.add(log)
+            db.session.flush()
+        elif log.status == "Submitted":
+            log.status = "Needs Review"
+
+        save_daily_activity_entries(log, parsed_entries)
+        db.session.commit()
+        flash("Daily activity draft saved.", "success")
+        return redirect(url_for("daily_activity", date=selected_date.isoformat()))
+
+    @app.route("/daily-activity/clear", methods=["POST"])
+    def clear_daily_activity():
+        selected_date = parse_date_input(request.form.get("date")) or date.today()
+        log = DailyActivityLog.query.filter_by(date=selected_date).first()
+        affected_project_ids = set()
+        if log:
+            for posting in list(log.postings):
+                affected_project_ids.add(posting.project_id)
+                if posting.time_entry:
+                    db.session.delete(posting.time_entry)
+                db.session.delete(posting)
+            for entry in list(log.entries):
+                db.session.delete(entry)
+            log.status = "Draft"
+            log.total_hours = 0.0
+            log.updated_at = datetime.utcnow()
+            log.posted_at = None
+            for project_id in affected_project_ids:
+                update_project_incurred_total(project_id)
+            db.session.commit()
+            flash("Daily activity cleared.", "success")
+        return redirect(url_for("daily_activity", date=selected_date.isoformat()))
+
+    @app.route("/daily-activity/week")
+    def daily_activity_week():
+        selected_date = parse_date_input(request.args.get("date")) or date.today()
+        week_start = get_week_start(selected_date)
+        week_end = week_start + timedelta(days=6)
+        logs = (
+            DailyActivityLog.query
+            .filter(DailyActivityLog.date >= week_start, DailyActivityLog.date <= week_end)
+            .order_by(DailyActivityLog.date.asc())
+            .all()
+        )
+        logs_by_date = {log.date: log for log in logs}
+        week_days = [week_start + timedelta(days=offset) for offset in range(7)]
+
+        category_totals = defaultdict(float)
+        project_totals = defaultdict(float)
+        grand_total = 0.0
+        for log in logs:
+            for entry in log.entries:
+                hours = entry.duration_hours or 0.0
+                grand_total += hours
+                category_totals[entry.category or "Uncategorized"] += hours
+                if entry.project:
+                    project_totals[entry.project.na_number or entry.project.edb_number or f"Project {entry.project_id}"] += hours
+
+        return render_template(
+            "daily_activity_week.html",
+            week_start=week_start,
+            week_end=week_end,
+            week_days=week_days,
+            logs_by_date=logs_by_date,
+            category_totals=dict(sorted(category_totals.items())),
+            project_totals=dict(sorted(project_totals.items())),
+            grand_total=grand_total,
+        )
+
+    @app.route("/daily-activity/week/submit", methods=["POST"])
+    def submit_daily_activity_week():
+        week_start = parse_date_input(request.form.get("week_start")) or get_week_start(date.today())
+        week_end = week_start + timedelta(days=6)
+        logs = (
+            DailyActivityLog.query
+            .filter(DailyActivityLog.date >= week_start, DailyActivityLog.date <= week_end)
+            .order_by(DailyActivityLog.date.asc())
+            .all()
+        )
+        errors = []
+        affected_project_ids = set()
+
+        for log in logs:
+            payload = []
+            for entry in log.entries:
+                payload.append(
+                    {
+                        "start_time": entry.start_time.strftime("%H:%M") if entry.start_time else "",
+                        "duration_hours": str(entry.duration_hours or ""),
+                        "category": entry.category or "",
+                        "project_id": str(entry.project_id or ""),
+                        "machine_id": str(entry.machine_id or ""),
+                        "machine_job_id": str(entry.machine_job_id or ""),
+                        "subcategory": entry.subcategory or "",
+                        "adp_number": entry.adp_number or "",
+                        "notes": entry.notes or "",
+                    }
+                )
+            _, row_errors = parse_daily_activity_entries_payload(json.dumps(payload), log.date, strict=True)
+            errors.extend([f"{log.date.isoformat()}: {error}" for error in row_errors])
+
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return redirect(url_for("daily_activity_week", date=week_start.isoformat()))
+
+        for log in logs:
+            grouped = {}
+            for entry in log.entries:
+                if entry.category != "Project":
+                    continue
+                key = (entry.project_id, entry.machine_id, entry.machine_job_id)
+                if key not in grouped:
+                    grouped[key] = {"hours": 0.0, "notes": [], "job": entry.machine_job}
+                grouped[key]["hours"] += entry.duration_hours or 0.0
+                grouped[key]["notes"].append(combine_notes([entry.subcategory, entry.notes]))
+
+            existing_postings = {
+                (posting.project_id, posting.machine_id, posting.machine_job_id): posting
+                for posting in log.postings
+            }
+
+            for key, posting in list(existing_postings.items()):
+                if key in grouped:
+                    continue
+                affected_project_ids.add(posting.project_id)
+                if posting.time_entry:
+                    db.session.delete(posting.time_entry)
+                db.session.delete(posting)
+
+            for (project_id, machine_id, machine_job_id), grouped_item in grouped.items():
+                affected_project_ids.add(project_id)
+                job = grouped_item["job"] or MachineJob.query.get(machine_job_id)
+                notes_summary = combine_notes(grouped_item["notes"])
+                posting = existing_postings.get((project_id, machine_id, machine_job_id))
+                if posting and posting.time_entry:
+                    time_entry = posting.time_entry
+                    time_entry.date = log.date
+                    time_entry.machine_id = machine_id
+                    time_entry.machine_job_id = machine_job_id
+                    time_entry.work_type = get_machine_job_label(job) if job else ""
+                    time_entry.hours = grouped_item["hours"]
+                    time_entry.notes = notes_summary
+                else:
+                    time_entry = TimeEntry(
+                        project_id=project_id,
+                        machine_id=machine_id,
+                        machine_job_id=machine_job_id,
+                        date=log.date,
+                        work_type=get_machine_job_label(job) if job else "",
+                        hours=grouped_item["hours"],
+                        notes=notes_summary,
+                    )
+                    db.session.add(time_entry)
+                    db.session.flush()
+                    posting = DailyActivityPosting(
+                        daily_log_id=log.id,
+                        project_id=project_id,
+                        machine_id=machine_id,
+                        machine_job_id=machine_job_id,
+                        category="Project",
+                        time_entry_id=time_entry.id,
+                    )
+                    db.session.add(posting)
+
+                posting.duration_hours = grouped_item["hours"]
+                posting.notes_summary = notes_summary
+                posting.posted_at = datetime.utcnow()
+
+            log.status = "Submitted"
+            log.posted_at = datetime.utcnow()
+            log.updated_at = datetime.utcnow()
+
+        for project_id in affected_project_ids:
+            update_project_incurred_total(project_id)
+
+        db.session.commit()
+        flash("Weekly project hours submitted.", "success")
+        return redirect(url_for("daily_activity_week", date=week_start.isoformat()))
+
     @app.route("/projects/new", methods=["GET", "POST"])
     def new_project():
         if request.method == "POST":
