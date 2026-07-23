@@ -250,6 +250,12 @@ def create_app():
             return []
 
         rows = []
+        job_due_dates_by_label = defaultdict(set)
+        for machine in project.machines:
+            for job in machine.jobs:
+                if job.due_date:
+                    job_due_dates_by_label[get_machine_job_label(job)].add(job.due_date)
+
         ordered_quotes = sorted(project.job_quotes, key=lambda quote: quote.id)
         for quote in ordered_quotes:
             quoted_hours = quote.quoted_hours or 0.0
@@ -257,6 +263,7 @@ def create_app():
                 continue
 
             label = format_work_type_label(quote.work_type, quote.other_description)
+            due_dates = sorted(job_due_dates_by_label.get(label, set()))
             incurred_hours = sum(
                 (entry.hours or 0.0)
                 for entry in time_entries
@@ -274,6 +281,7 @@ def create_app():
                     "pct_fill": pct_fill,
                     "pct_class": get_progress_bucket(pct_raw),
                     "is_complete": pct_raw >= 100.0,
+                    "due_dates": due_dates,
                 }
             )
 
@@ -428,6 +436,8 @@ def create_app():
             return True
         if job.status and job.status != "N/S":
             return True
+        if job.due_date:
+            return True
         return any(
             getattr(job, item["field"]) or getattr(job, item["na_field"], False)
             for item in MACHINE_MILESTONE_DEFINITIONS
@@ -446,7 +456,7 @@ def create_app():
             if key in desired_keys:
                 continue
             if machine_job_has_history(job):
-                return f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, hours, or milestone dates."
+                return f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, hours, due date, or milestone dates."
             db.session.delete(job)
 
         existing_keys = {
@@ -571,7 +581,9 @@ def create_app():
         return milestone_values, row_complete
 
     def project_machine_job_anchor(project_id, job_id):
-        return url_for("project_detail", project_id=project_id) + f"#machine-job-{job_id}"
+        scroll_y = (request.form.get("scroll_y") or "").strip()
+        restore_param = f"?scroll_y={quote(scroll_y)}" if scroll_y.isdigit() else ""
+        return url_for("project_detail", project_id=project_id) + restore_param + f"#machine-job-{job_id}"
 
     def subtract_deleted_machine_job_quote(project: Project, job: MachineJob):
         if job.parent_job_id:
@@ -1220,6 +1232,7 @@ def create_app():
         product_line_id_raw = request.form.get("product_line_id")
         status = request.form.get("status")
         quoted_hours_raw = request.form.get("quoted_hours")
+        job_due_date_raw = request.form.get("job_due_date")
         incurred_hours_raw = request.form.get("incurred_hours")
         version = (request.form.get("version") or "").strip() or machine.version or machine.version_label
         nctp = request.form.get("nctp") == "on"
@@ -1270,6 +1283,11 @@ def create_app():
         quoted_hours = parse_float_input(quoted_hours_raw)
         if quoted_hours is None and (quoted_hours_raw or "") != "":
             flash("Quoted hours must be a valid number.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
+        job_due_date = parse_date_input(job_due_date_raw)
+        if job_due_date_raw and job_due_date is None:
+            flash("Invalid job due date.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
         incurred_hours = parse_float_input(incurred_hours_raw)
@@ -1352,6 +1370,7 @@ def create_app():
 
         if target_job is not None:
             target_job.status = status
+            target_job.due_date = job_due_date
             target_job.quoted_hours = quoted_hours if quoted_hours is not None else 0.0
             target_job.incurred_hours = incurred_hours if incurred_hours is not None else 0.0
             na_fields_by_date_field = {
@@ -1492,7 +1511,7 @@ def create_app():
 
         if machine_job_has_history(job):
             flash(
-                f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, hours, or milestone dates.",
+                f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, hours, due date, or milestone dates.",
                 "error",
             )
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
@@ -1600,6 +1619,7 @@ def create_app():
             other_description=source_job.other_description,
             version_number=next_version_number,
             status="N/S",
+            due_date=source_job.due_date,
             quoted_hours=source_job.quoted_hours or 0.0,
             incurred_hours=0.0,
         )
@@ -2047,6 +2067,12 @@ def ensure_machine_job_schema():
     """Create/backfill job-level tracking rows for machine work types.
     Also ensures parent_job_id and version_number columns exist.
     """
+    project_job_quote_cols = {
+        row[1]
+        for row in db.session.execute(text("PRAGMA table_info(project_job_quotes)")).fetchall()
+    }
+    has_project_job_quote_due_date = "due_date" in project_job_quote_cols
+
     # 1. Ensure machine_job_id column exists in time_entries
     time_entry_cols = {
         row[1]
@@ -2079,6 +2105,30 @@ def ensure_machine_job_schema():
         db.session.execute(text("ALTER TABLE machine_jobs ADD COLUMN incurred_hours FLOAT DEFAULT 0.0"))
         db.session.commit()
         machine_job_cols.add("incurred_hours")
+
+    if "due_date" not in machine_job_cols:
+        db.session.execute(text("ALTER TABLE machine_jobs ADD COLUMN due_date DATE"))
+        db.session.commit()
+        machine_job_cols.add("due_date")
+
+    if has_project_job_quote_due_date:
+        db.session.execute(text("""
+            UPDATE machine_jobs
+               SET due_date = (
+                   SELECT project_job_quotes.due_date
+                     FROM project_job_quotes
+                     JOIN machines ON machines.project_id = project_job_quotes.project_id
+                    WHERE machines.id = machine_jobs.machine_id
+                      AND project_job_quotes.work_type = machine_jobs.work_type
+                      AND (
+                          project_job_quotes.other_description = machine_jobs.other_description
+                          OR (project_job_quotes.other_description IS NULL AND machine_jobs.other_description IS NULL)
+                      )
+                    LIMIT 1
+               )
+             WHERE due_date IS NULL
+        """))
+        db.session.commit()
 
     for item in MACHINE_MILESTONE_DEFINITIONS:
         na_field = item["na_field"]

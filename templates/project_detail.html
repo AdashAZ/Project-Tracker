@@ -289,11 +289,11 @@
           <tr>
             <th>Product / Line</th>
             <th>Machine / Asset #</th>
-            <th>Job</th>
+            <th class="machine-col-job">Job</th>
             <th class="machine-col-status">Work Status</th>
             <th class="machine-col-tracked">Quoted Hours</th>
             <th class="machine-col-tracked">Tracked Hours</th>
-            <th>Entries</th>
+            <th class="machine-col-due-date">Due Date</th>
             <th class="milestones-col">Milestones</th>
             <th>Actions</th>
           </tr>
@@ -316,7 +316,7 @@
                 <span class="machine-version-tag">{{ machine.version_label }}</span>
               </div>
             </td>
-            <td><span class="job-pill">{{ job_label }}</span></td>
+            <td class="machine-col-job"><span class="job-pill">{{ job_label }}</span></td>
             <td class="machine-col-status">
               <form method="post" action="{{ url_for('update_machine_job_status', project_id=project.id, job_id=job.id) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -341,7 +341,7 @@
                 </div>
               </div>
             </td>
-            <td>{{ machine_job_entry_counts.get(job.id, 0) }}</td>
+            <td class="machine-col-due-date">{{ job.due_date.isoformat() if job.due_date else 'Not set' }}</td>
 
             <td class="milestone-cell milestone-panel-cell">
               <div class="milestone-panel-grid">
@@ -362,28 +362,40 @@
                     </div>
                     <div class="milestone-actions milestone-actions-compact">
                       <form
+                        class="milestone-preserve-scroll"
                         method="post"
                         action="{{ url_for('set_machine_job_milestone_today', project_id=project.id, job_id=job.id, milestone_key=milestone.key) }}"
                         {% if milestone_value or milestone_state["is_na"] %}onsubmit="return confirm('This will overwrite the existing milestone state with today. Continue?');"{% endif %}
                       >
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="scroll_y" value="">
                         <button type="submit" class="btn-mini">Set Today</button>
                       </form>
                       <form
+                        class="milestone-preserve-scroll"
                         method="post"
                         action="{{ url_for('mark_machine_job_milestone_na', project_id=project.id, job_id=job.id, milestone_key=milestone.key) }}"
                         {% if milestone_value %}onsubmit="return confirm('This will clear the existing date and mark this milestone N/A. Continue?');"{% endif %}
                       >
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="scroll_y" value="">
                         <button type="submit" class="btn-mini btn-milestone-na" title="Mark this milestone not applicable" aria-label="Mark {{ milestone.label }} not applicable">N/A</button>
                       </form>
                       <form
+                        class="milestone-preserve-scroll"
                         method="post"
                         action="{{ url_for('clear_machine_job_milestone', project_id=project.id, job_id=job.id, milestone_key=milestone.key) }}"
                         onsubmit="return confirm('Clear this milestone?');"
                       >
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn-mini btn-link-danger">Clear</button>
+                        <input type="hidden" name="scroll_y" value="">
+                        <button type="submit" class="btn-mini btn-icon-mini btn-link-danger" title="Clear this milestone" aria-label="Clear {{ milestone.label }}">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                          </svg>
+                        </button>
                       </form>
                     </div>
                   </div>
@@ -399,7 +411,7 @@
                   <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                 </svg>
               </a>
-              <form method="post" action="{{ url_for('delete_machine_job', project_id=project.id, job_id=job.id) }}" onsubmit="return confirm('Remove this unused job row? Rows with time entries, status, hours, or milestones are protected.');">
+              <form method="post" action="{{ url_for('delete_machine_job', project_id=project.id, job_id=job.id) }}" onsubmit="return confirm('Remove this unused job row? Rows with time entries, status, hours, due dates, or milestones are protected.');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-link-danger" title="Delete Job" aria-label="Delete Job">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -485,6 +497,11 @@
                   <div>
                     <label for="edit-quoted-hours-{{ machine.id }}">Quoted Hours</label>
                     <input type="number" step="0.1" id="edit-quoted-hours-{{ machine.id }}" name="quoted_hours" value="{{ machine_job_quote_hours.get(edit_job.id, edit_job.quoted_hours or 0) if edit_job else machine.quoted_hours or 0 }}">
+                  </div>
+
+                  <div>
+                    <label for="edit-job-due-date-{{ machine.id }}">Job Due Date</label>
+                    <input type="date" id="edit-job-due-date-{{ machine.id }}" name="job_due_date" value="{{ edit_job.due_date.isoformat() if edit_job and edit_job.due_date else '' }}">
                   </div>
 
                   <div>

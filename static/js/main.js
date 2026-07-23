@@ -1,6 +1,27 @@
 // static/js/main.js
 
 document.addEventListener("DOMContentLoaded", () => {
+  const restoreScrollParam = new URLSearchParams(window.location.search).get("scroll_y");
+  if (restoreScrollParam !== null) {
+    const restoreScrollY = Number.parseInt(restoreScrollParam, 10);
+    if (Number.isFinite(restoreScrollY)) {
+      window.setTimeout(() => {
+        window.scrollTo({ top: restoreScrollY, left: 0 });
+        const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+        window.history.replaceState({}, "", cleanUrl);
+      }, 0);
+    }
+  }
+
+  document.querySelectorAll(".milestone-preserve-scroll").forEach((form) => {
+    form.addEventListener("submit", () => {
+      const scrollInput = form.querySelector('input[name="scroll_y"]');
+      if (scrollInput) {
+        scrollInput.value = String(Math.max(Math.round(window.scrollY), 0));
+      }
+    });
+  });
+
   // ---------------------------
   // Dashboard: status filter + search preview
   // ---------------------------

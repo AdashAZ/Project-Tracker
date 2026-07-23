@@ -283,6 +283,7 @@ class MachineJob(db.Model):
     other_description = db.Column(db.String(255))
     version_number = db.Column(db.Integer, default=1)
     status = db.Column(db.String(50), default="N/S")
+    due_date = db.Column(db.Date, nullable=True)
 
     report_cas_approval_date = db.Column(db.Date, nullable=True)
     report_sent_customer_date = db.Column(db.Date, nullable=True)
