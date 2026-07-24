@@ -12,8 +12,7 @@
   <div class="daily-activity-toolbar">
     <form method="get" action="{{ url_for('daily_activity') }}" class="daily-date-form">
       <label for="daily-activity-date">Date</label>
-      <input type="date" id="daily-activity-date" name="date" value="{{ selected_date.isoformat() }}">
-      <button type="submit" class="btn-mini">Load</button>
+      <input type="date" id="daily-activity-date" name="date" value="{{ selected_date.isoformat() }}" data-auto-submit-date>
     </form>
     <a class="btn-secondary" href="{{ url_for('daily_activity_week', date=selected_date.isoformat()) }}">Weekly Review</a>
   </div>

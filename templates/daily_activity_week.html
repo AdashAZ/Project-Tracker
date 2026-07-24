@@ -15,7 +15,7 @@
       <input type="date" id="week-date" name="date" value="{{ week_start.isoformat() }}">
       <button type="submit" class="btn-mini">Load Week</button>
     </form>
-    <a class="btn-secondary" href="{{ url_for('daily_activity', date=week_start.isoformat()) }}">Daily Entry</a>
+    <a class="btn-secondary" href="{{ url_for('daily_activity') }}">Daily Entry</a>
   </div>
 
   <div class="daily-activity-layout">
