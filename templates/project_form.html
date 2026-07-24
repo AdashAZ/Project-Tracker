@@ -44,11 +44,6 @@
         </div>
 
         <div class="new-project-field">
-          <label for="due_date">Due Date</label>
-          <input type="date" id="due_date" name="due_date">
-        </div>
-
-        <div class="new-project-field">
           <label for="status">Status</label>
           <select id="status" name="status">
             <option value="N/S" selected>N/S</option>
@@ -69,6 +64,7 @@
           <div id="job-quote-list" class="job-quote-list">
             <div class="job-quote-row" data-job-quote-row>
               <input type="number" step="0.1" min="0" class="job-quote-hours" placeholder="Hours">
+              <input type="date" class="job-quote-due-date" title="Job due date" aria-label="Job due date">
               <select class="job-quote-work-type">
                 <option value="">-- Select Job --</option>
                 {% for work_type in work_type_options %}
@@ -179,6 +175,7 @@
 <template id="job-quote-row-template">
   <div class="job-quote-row" data-job-quote-row>
     <input type="number" step="0.1" min="0" class="job-quote-hours" placeholder="Hours">
+    <input type="date" class="job-quote-due-date" title="Job due date" aria-label="Job due date">
     <select class="job-quote-work-type">
       <option value="">-- Select Job --</option>
       {% for work_type in work_type_options %}

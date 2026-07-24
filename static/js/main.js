@@ -563,14 +563,22 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       if (select) {
-        select.addEventListener("change", updateOtherVisibility);
+        select.addEventListener("change", () => {
+          updateOtherVisibility();
+          syncQuoteWorkTypesToMachines();
+        });
         updateOtherVisibility();
       }
+
+      row.querySelectorAll("input").forEach((input) => {
+        input.addEventListener("input", syncQuoteWorkTypesToMachines);
+      });
 
       if (removeBtn) {
         removeBtn.addEventListener("click", () => {
           row.remove();
           refreshJobQuoteRemoveButtons();
+          syncQuoteWorkTypesToMachines();
         });
       }
     };
@@ -605,13 +613,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       jobQuoteList.querySelectorAll("[data-job-quote-row]").forEach((row) => {
         const hoursInput = row.querySelector(".job-quote-hours");
+        const dueDateInput = row.querySelector(".job-quote-due-date");
         const select = row.querySelector(".job-quote-work-type");
         const otherInput = row.querySelector(".job-quote-other");
         const hoursRaw = (hoursInput?.value || "").trim();
+        const dueDate = (dueDateInput?.value || "").trim();
         const workType = (select?.value || "").trim();
         const otherDescription = (otherInput?.value || "").trim();
 
-        if (!hoursRaw && !workType && !otherDescription) return;
+        if (!hoursRaw && !dueDate && !workType && !otherDescription) return;
         const hours = Number(hoursRaw);
 
         if (!workType || !Number.isFinite(hours) || hours < 0) {
@@ -631,10 +641,29 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         seen.add(key);
         total += hours;
-        payload.push({ work_type: workType, other_description: otherDescription, quoted_hours: hours });
+        payload.push({ work_type: workType, other_description: otherDescription, quoted_hours: hours, due_date: dueDate });
       });
 
       return { payload, hasError, total };
+    };
+
+    const getQuoteWorkTypeSpecs = () => {
+      const specs = [];
+      const seen = new Set();
+      if (!jobQuoteList) return specs;
+      jobQuoteList.querySelectorAll("[data-job-quote-row]").forEach((row) => {
+        const select = row.querySelector(".job-quote-work-type");
+        const otherInput = row.querySelector(".job-quote-other");
+        const workType = (select?.value || "").trim();
+        const otherDescription = (otherInput?.value || "").trim();
+        if (!workType) return;
+        if (workType === "Other" && !otherDescription) return;
+        const key = `${workType}::${otherDescription}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        specs.push({ work_type: workType, other_description: otherDescription });
+      });
+      return specs;
     };
 
     const addWorkTypeRow = (machineItem) => {
@@ -644,6 +673,30 @@ document.addEventListener("DOMContentLoaded", () => {
       const row = workTypeTemplate.content.firstElementChild.cloneNode(true);
       container.appendChild(row);
       bindWorkTypeRowInteractions(row);
+    };
+
+    const setMachineWorkTypesFromSpecs = (machineItem, specs) => {
+      if (!workTypeTemplate || !machineItem || specs.length === 0) return;
+      const container = machineItem.querySelector("[data-work-types-container]");
+      if (!container) return;
+      container.innerHTML = "";
+      specs.forEach((spec) => {
+        const row = workTypeTemplate.content.firstElementChild.cloneNode(true);
+        const select = row.querySelector(".machine-work-type-select");
+        const otherInput = row.querySelector(".machine-work-type-other");
+        if (select) select.value = spec.work_type;
+        if (otherInput) otherInput.value = spec.other_description || "";
+        container.appendChild(row);
+        bindWorkTypeRowInteractions(row);
+      });
+    };
+
+    const syncQuoteWorkTypesToMachines = () => {
+      const specs = getQuoteWorkTypeSpecs();
+      if (!productLineList || specs.length === 0) return;
+      productLineList.querySelectorAll("[data-machine-item]").forEach((machineItem) => {
+        setMachineWorkTypesFromSpecs(machineItem, specs);
+      });
     };
 
     const refreshMachineRemoveButtons = (machineList) => {
@@ -688,6 +741,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const machineItem = machineTemplate.content.firstElementChild.cloneNode(true);
       machineList.appendChild(machineItem);
       bindMachineItem(machineItem, machineList);
+      setMachineWorkTypesFromSpecs(machineItem, getQuoteWorkTypeSpecs());
       refreshMachineRemoveButtons(machineList);
     };
 
@@ -735,6 +789,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const lineItem = productLineTemplate.content.firstElementChild.cloneNode(true);
       productLineList.appendChild(lineItem);
       bindProductLineItem(lineItem);
+      lineItem.querySelectorAll("[data-machine-item]").forEach((machineItem) => {
+        setMachineWorkTypesFromSpecs(machineItem, getQuoteWorkTypeSpecs());
+      });
       refreshProductLineRemoveButtons();
     };
 
@@ -743,12 +800,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (addJobQuoteBtn) {
-      addJobQuoteBtn.addEventListener("click", addJobQuoteRow);
+      addJobQuoteBtn.addEventListener("click", () => {
+        addJobQuoteRow();
+        syncQuoteWorkTypesToMachines();
+      });
     }
 
     if (jobQuoteList) {
       jobQuoteList.querySelectorAll("[data-job-quote-row]").forEach((row) => bindJobQuoteRow(row));
       refreshJobQuoteRemoveButtons();
+      syncQuoteWorkTypesToMachines();
     }
 
     if (productLineList) {
@@ -972,6 +1033,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const select = row.querySelector(".job-quote-work-type");
     const otherInput = row.querySelector(".job-quote-other");
     const hoursInput = row.querySelector(".job-quote-hours");
+    const dueDateInput = row.querySelector(".job-quote-due-date");
     const removeBtn = row.querySelector("[data-remove-job-quote]");
 
     const updateOtherVisibility = () => {
@@ -991,6 +1053,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (hoursInput) {
       hoursInput.addEventListener("input", updateProjectEditQuotedTotal);
+    }
+
+    if (dueDateInput) {
+      dueDateInput.addEventListener("input", updateProjectEditQuotedTotal);
     }
 
     if (otherInput) {
@@ -1039,13 +1105,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     projectEditJobQuoteList.querySelectorAll("[data-job-quote-row]").forEach((row) => {
       const hoursInput = row.querySelector(".job-quote-hours");
+      const dueDateInput = row.querySelector(".job-quote-due-date");
       const select = row.querySelector(".job-quote-work-type");
       const otherInput = row.querySelector(".job-quote-other");
       const hoursRaw = (hoursInput?.value || "").trim();
+      const dueDate = (dueDateInput?.value || "").trim();
       const workType = (select?.value || "").trim();
       const otherDescription = (otherInput?.value || "").trim();
 
-      if (!hoursRaw && !workType && !otherDescription) return;
+      if (!hoursRaw && !dueDate && !workType && !otherDescription) return;
 
       const hours = Number(hoursRaw);
       if (!workType || !Number.isFinite(hours) || hours < 0) {
@@ -1066,7 +1134,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       seen.add(key);
       total += hours;
-      payload.push({ work_type: workType, other_description: otherDescription, quoted_hours: hours });
+      payload.push({ work_type: workType, other_description: otherDescription, quoted_hours: hours, due_date: dueDate });
     });
 
     return { payload, hasError, total };

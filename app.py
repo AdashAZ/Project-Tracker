@@ -246,8 +246,9 @@ def create_app():
             work_type = (item.get("work_type") or "").strip()
             other_description = (item.get("other_description") or "").strip()
             hours_raw = item.get("quoted_hours")
+            due_date_raw = (item.get("due_date") or "").strip()
 
-            if not work_type and hours_raw in (None, ""):
+            if not work_type and hours_raw in (None, "") and not due_date_raw:
                 continue
             if work_type not in WORK_TYPE_OPTIONS:
                 return None, "Select a valid job for each quoted-hours row."
@@ -257,6 +258,9 @@ def create_app():
             hours = parse_float_input(str(hours_raw) if hours_raw is not None else None)
             if hours is None or hours < 0:
                 return None, "Quoted hours must be a valid non-negative number."
+            due_date = parse_date_input(due_date_raw)
+            if due_date_raw and due_date is None:
+                return None, "Job due dates must be valid dates."
 
             key = (work_type, other_description)
             if key in seen:
@@ -269,6 +273,7 @@ def create_app():
                     "other_description": other_description or None,
                     "label": format_work_type_label(work_type, other_description),
                     "quoted_hours": hours,
+                    "due_date": due_date,
                 }
             )
 
@@ -1227,7 +1232,6 @@ def create_app():
             location = request.form.get("location")
             na_number = request.form.get("na_number")
             edb_number = request.form.get("edb_number")
-            due_date_str = request.form.get("due_date")
             status = request.form.get("status") or "N/S"
             quoted_hours_total = request.form.get("quoted_hours_total") or "0"
             product_lines_payload = request.form.get("product_lines_payload")
@@ -1237,15 +1241,16 @@ def create_app():
                 flash("Customer is required.", "error")
                 return redirect(url_for("new_project"))
 
-            due_date = parse_date_input(due_date_str)
-            if due_date_str and due_date is None:
-                flash("Invalid due date format.", "error")
-                return redirect(url_for("new_project"))
-
             job_quotes, job_quotes_error = parse_job_quotes_payload(job_quotes_payload)
             if job_quotes_error:
                 flash(job_quotes_error, "error")
                 return redirect(url_for("new_project"))
+            due_dates = [quote["due_date"] for quote in job_quotes if quote["due_date"]]
+            due_date = max(due_dates) if due_dates else None
+            due_dates_by_job_key = {
+                (quote["work_type"], quote["other_description"]): quote["due_date"]
+                for quote in job_quotes
+            }
 
             quoted_hours = sum(item["quoted_hours"] for item in job_quotes)
             if not job_quotes:
@@ -1279,6 +1284,7 @@ def create_app():
                         work_type=quote["work_type"],
                         other_description=quote["other_description"],
                         quoted_hours=quote["quoted_hours"],
+                        due_date=quote["due_date"],
                     )
                 )
 
@@ -1305,7 +1311,8 @@ def create_app():
                                 other_description=wt["other_description"],
                             )
                         )
-                        get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
+                        job = get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
+                        job.due_date = due_dates_by_job_key.get((wt["work_type"], wt["other_description"]))
 
             db.session.commit()
 
@@ -2239,7 +2246,6 @@ def create_app():
         product_line = request.form.get("product_line")
         na_number = request.form.get("na_number")
         edb_number = request.form.get("edb_number")
-        due_date_str = request.form.get("due_date")
         expenses_submitted_date_str = request.form.get("expenses_submitted_date")
         quoted_hours_total = request.form.get("quoted_hours_total")
         job_quotes_payload = request.form.get("job_quotes_payload")
@@ -2255,15 +2261,6 @@ def create_app():
             project.na_number = na_number
         if edb_number is not None:
             project.edb_number = edb_number
-
-        if due_date_str:
-            parsed_due = parse_date_input(due_date_str)
-            if parsed_due is None:
-                flash("Invalid due date format.", "error")
-                return redirect(url_for("project_detail", project_id=project.id))
-            project.due_date = parsed_due
-        else:
-            project.due_date = None
 
         if expenses_submitted_date_str:
             parsed_expenses = parse_date_input(expenses_submitted_date_str)
@@ -2288,9 +2285,12 @@ def create_app():
                         work_type=quote["work_type"],
                         other_description=quote["other_description"],
                         quoted_hours=quote["quoted_hours"],
+                        due_date=quote["due_date"],
                     )
                 )
             project.quoted_hours_total = sum(item["quoted_hours"] for item in job_quotes)
+            quote_due_dates = [item["due_date"] for item in job_quotes if item["due_date"]]
+            project.due_date = max(quote_due_dates) if quote_due_dates else None
 
 
             # Add new quoted job types to all existing machines so they appear
@@ -2314,11 +2314,12 @@ def create_app():
                             )
                         )
 
-                    get_or_create_machine_job(
+                    job = get_or_create_machine_job(
                         machine,
                         quote["work_type"],
                         quote["other_description"],
                     )
+                    job.due_date = quote["due_date"]
 
 
         elif quoted_hours_total is not None and quoted_hours_total != "":
@@ -2509,6 +2510,10 @@ def ensure_machine_job_schema():
         for row in db.session.execute(text("PRAGMA table_info(project_job_quotes)")).fetchall()
     }
     has_project_job_quote_due_date = "due_date" in project_job_quote_cols
+    if not has_project_job_quote_due_date:
+        db.session.execute(text("ALTER TABLE project_job_quotes ADD COLUMN due_date DATE"))
+        db.session.commit()
+        has_project_job_quote_due_date = True
 
     # 1. Ensure machine_job_id column exists in time_entries
     time_entry_cols = {

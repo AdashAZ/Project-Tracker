@@ -175,6 +175,7 @@ class ProjectJobQuote(db.Model):
     work_type = db.Column(db.String(50), nullable=False)
     other_description = db.Column(db.String(255))
     quoted_hours = db.Column(db.Float, default=0.0)
+    due_date = db.Column(db.Date, nullable=True)
 
 
 class WorkType(db.Model):

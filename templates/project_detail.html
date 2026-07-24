@@ -166,11 +166,6 @@
       </div>
 
       <div class="form-group">
-        <label for="due_date">Due Date</label>
-        <input type="date" id="due_date" name="due_date" value="{{ project.due_date.isoformat() if project.due_date else '' }}">
-      </div>
-
-      <div class="form-group">
         <label for="expenses_submitted_date">Expenses Submitted</label>
         <input type="date" id="expenses_submitted_date" name="expenses_submitted_date" value="{{ project.expenses_submitted_date.isoformat() if project.expenses_submitted_date else '' }}">
       </div>
@@ -201,6 +196,7 @@
             {% for quote in project.job_quotes|sort(attribute='id') %}
             <div class="job-quote-row" data-job-quote-row>
               <input type="number" step="0.1" min="0" class="job-quote-hours" placeholder="Hours" value="{{ quote.quoted_hours or 0 }}">
+              <input type="date" class="job-quote-due-date" value="{{ quote.due_date.isoformat() if quote.due_date else '' }}" title="Job due date" aria-label="Job due date">
               <select class="job-quote-work-type">
                 <option value="">-- Select Job --</option>
                 {% for work_type in work_type_options %}
@@ -214,6 +210,7 @@
           {% else %}
             <div class="job-quote-row" data-job-quote-row>
               <input type="number" step="0.1" min="0" class="job-quote-hours" placeholder="Hours">
+              <input type="date" class="job-quote-due-date" title="Job due date" aria-label="Job due date">
               <select class="job-quote-work-type">
                 <option value="">-- Select Job --</option>
                 {% for work_type in work_type_options %}
@@ -826,6 +823,7 @@
   <template id="project-edit-job-quote-row-template">
     <div class="job-quote-row" data-job-quote-row>
       <input type="number" step="0.1" min="0" class="job-quote-hours" placeholder="Hours">
+      <input type="date" class="job-quote-due-date" title="Job due date" aria-label="Job due date">
       <select class="job-quote-work-type">
         <option value="">-- Select Job --</option>
         {% for work_type in work_type_options %}
@@ -924,16 +922,18 @@ document.addEventListener('DOMContentLoaded', function() {
     return Array.from(listEl.querySelectorAll('[data-job-quote-row]'))
       .map(row => {
         const hours = row.querySelector('.job-quote-hours')?.value || '';
+        const dueDate = row.querySelector('.job-quote-due-date')?.value || '';
         const workType = row.querySelector('.job-quote-work-type')?.value || '';
         const other = row.querySelector('.job-quote-other')?.value || '';
 
         return {
           quoted_hours: hours,
+          due_date: dueDate,
           work_type: workType,
           other_description: other
         };
       })
-      .filter(item => item.work_type || item.quoted_hours);
+      .filter(item => item.work_type || item.quoted_hours || item.due_date);
   }
 
   function updateProjectEditQuotedTotal() {

@@ -2970,7 +2970,7 @@ tr:nth-child(even) td {
 
 .job-quote-row {
   display: grid;
-  grid-template-columns: minmax(100px, 140px) minmax(150px, 190px) minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(88px, 120px) minmax(132px, 150px) minmax(140px, 180px) minmax(170px, 1fr) auto;
   gap: 0.5rem;
   align-items: center;
 }
