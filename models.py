@@ -11,6 +11,7 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     customer = db.Column(db.String(255), nullable=False)
+    project_manager = db.Column(db.String(255))
     location = db.Column(db.String(255))
     product_line = db.Column(db.String(255))
     na_number = db.Column(db.String(100))   # NA# / SO#

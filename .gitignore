@@ -6,3 +6,4 @@ __pycache__/
 instance/*.db
 details.txt
 test_grok.py
+start_safety_tracker.bat

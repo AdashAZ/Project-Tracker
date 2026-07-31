@@ -27,6 +27,7 @@
           </dd>
         </div>
         <div><dt>Customer</dt><dd>{{ project.customer or 'N/A' }}</dd></div>
+        <div><dt>Project Manager</dt><dd>{{ project.project_manager or 'N/A' }}</dd></div>
         <div><dt>Location</dt><dd>{{ project.location or 'N/A' }}</dd></div>
         <div><dt>NA# / SO#</dt><dd>{{ project.na_number or 'N/A' }}</dd></div>
         <div><dt>EDB#</dt><dd>{{ project.edb_number or 'N/A' }}</dd></div>
@@ -143,6 +144,11 @@
       <div class="form-group">
         <label for="customer">Customer</label>
         <input type="text" id="customer" name="customer" value="{{ project.customer }}">
+      </div>
+
+      <div class="form-group">
+        <label for="project_manager">Project Manager</label>
+        <input type="text" id="project_manager" name="project_manager" value="{{ project.project_manager }}">
       </div>
 
       <div class="form-group">

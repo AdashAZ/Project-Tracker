@@ -1229,6 +1229,7 @@ def create_app():
     def new_project():
         if request.method == "POST":
             customer = request.form.get("customer")
+            project_manager = request.form.get("project_manager")
             location = request.form.get("location")
             na_number = request.form.get("na_number")
             edb_number = request.form.get("edb_number")
@@ -1266,6 +1267,7 @@ def create_app():
 
             project = Project(
                 customer=customer,
+                project_manager=project_manager,
                 location=location,
                 product_line=product_line_specs[0]["product_line_name"] if product_line_specs else None,
                 na_number=na_number,
@@ -2242,6 +2244,7 @@ def create_app():
         project = Project.query.get_or_404(project_id)
 
         customer = request.form.get("customer")
+        project_manager = request.form.get("project_manager")
         location = request.form.get("location")
         product_line = request.form.get("product_line")
         na_number = request.form.get("na_number")
@@ -2253,6 +2256,8 @@ def create_app():
 
         if customer is not None:
             project.customer = customer
+        if project_manager is not None:
+            project.project_manager = project_manager
         if location is not None:
             project.location = location
         if product_line is not None:
@@ -2684,7 +2689,7 @@ def ensure_machine_job_schema():
     db.session.commit()
 
 def ensure_project_schema():
-    """Add created_at field to existing projects and set default values"""
+    """Ensure legacy project tables have newer project fields."""
     existing_cols = {
         row[1]
         for row in db.session.execute(text("PRAGMA table_info(projects)")).fetchall()
@@ -2697,6 +2702,10 @@ def ensure_project_schema():
 
     if "expenses_submitted_date" not in existing_cols:
         db.session.execute(text("ALTER TABLE projects ADD COLUMN expenses_submitted_date DATE"))
+        db.session.commit()
+
+    if "project_manager" not in existing_cols:
+        db.session.execute(text("ALTER TABLE projects ADD COLUMN project_manager VARCHAR(255)"))
         db.session.commit()
 
     # Set created_at for existing projects that don't have it
@@ -2713,4 +2722,4 @@ def ensure_project_schema():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=False)
