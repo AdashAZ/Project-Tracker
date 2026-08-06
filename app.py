@@ -385,23 +385,8 @@ def create_app():
                 for job in project_jobs
                 if (job.machine.version_number or job.version_number or 1) == 1
             ]
-            v1_complete = bool(v1_jobs) and all(job_milestones_complete(job) for job in v1_jobs)
-            if v1_complete:
-                rows.append(
-                    {
-                        "label": "V1.0 Completed",
-                        "is_status": True,
-                        "quoted_hours": sum(job.quoted_hours or 0.0 for job in v1_jobs),
-                        "incurred_hours": sum(
-                            (entry.hours or 0.0)
-                            for entry in time_entries
-                            if entry.machine_job_id in {job.id for job in v1_jobs}
-                        ) or sum(job.incurred_hours or 0.0 for job in v1_jobs),
-                        "due_dates": sorted({job.due_date for job in v1_jobs if job.due_date}),
-                    }
-                )
-
             latest_version = max((job.machine.version_number or job.version_number or 1) for job in project_jobs)
+            v1_complete = bool(v1_jobs) and all(job_milestones_complete(job) for job in v1_jobs)
             if latest_version > 1:
                 grouped_jobs = defaultdict(list)
                 for job in project_jobs:
@@ -439,7 +424,19 @@ def create_app():
                 return rows
 
             if v1_complete:
-                return rows
+                return [
+                    {
+                        "label": "V1.0 Completed",
+                        "is_status": True,
+                        "quoted_hours": sum(job.quoted_hours or 0.0 for job in v1_jobs),
+                        "incurred_hours": sum(
+                            (entry.hours or 0.0)
+                            for entry in time_entries
+                            if entry.machine_job_id in {job.id for job in v1_jobs}
+                        ) or sum(job.incurred_hours or 0.0 for job in v1_jobs),
+                        "due_dates": sorted({job.due_date for job in v1_jobs if job.due_date}),
+                    }
+                ]
 
         if not project.job_quotes:
             return []
@@ -805,8 +802,28 @@ def create_app():
         project = Project.query.get(project_id)
         if not project:
             return
-        total = sum(entry.hours or 0.0 for entry in TimeEntry.query.filter_by(project_id=project_id).all())
+        total = sum(entry.hours or 0.0 for entry in get_visible_project_time_entries(project_id))
         project.incurred_hours_total = total
+
+    def get_pending_daily_posted_time_entry_ids(project_id: int):
+        return {
+            row[0]
+            for row in db.session.query(DailyActivityPosting.time_entry_id)
+            .join(DailyActivityLog)
+            .filter(
+                DailyActivityPosting.project_id == project_id,
+                DailyActivityPosting.time_entry_id.isnot(None),
+                DailyActivityLog.status != "Submitted",
+            )
+            .all()
+        }
+
+    def get_visible_project_time_entries(project_id: int):
+        pending_time_entry_ids = get_pending_daily_posted_time_entry_ids(project_id)
+        query = TimeEntry.query.filter_by(project_id=project_id)
+        if pending_time_entry_ids:
+            query = query.filter(~TimeEntry.id.in_(pending_time_entry_ids))
+        return query.order_by(TimeEntry.date.desc(), TimeEntry.id.desc()).all()
 
     def machine_job_has_history(job: MachineJob):
         if getattr(job, "versions", None):
@@ -1142,7 +1159,7 @@ def create_app():
         ).all()
 
         for project in projects:
-            project_time_entries = list(project.time_entries)
+            project_time_entries = get_visible_project_time_entries(project.id)
             total_incurred = sum(te.hours or 0.0 for te in project_time_entries)
             project.incurred_hours_total = total_incurred
             project.job_progress_rows = build_project_job_progress_rows(project, project_time_entries)
@@ -1251,9 +1268,83 @@ def create_app():
             flash("Daily activity cleared.", "success")
         return redirect(url_for("daily_activity", date=selected_date.isoformat()))
 
+    def get_week_entry_project_ref(entry: DailyActivityEntry):
+        if entry.project:
+            return entry.project.na_number or entry.project.edb_number or f"Project {entry.project_id}"
+        return ""
+
+    def get_week_entry_detail(entry: DailyActivityEntry):
+        if not entry.project:
+            return "-"
+        parts = [get_week_entry_project_ref(entry)]
+        if entry.machine:
+            parts.append(entry.machine.machine_name)
+        if entry.machine_job:
+            parts.append(get_machine_job_label(entry.machine_job))
+        return " / ".join(part for part in parts if part)
+
+    def get_week_entry_adp_subcategory(entry: DailyActivityEntry):
+        if entry.adp_number and entry.subcategory:
+            return f"{entry.adp_number} - {entry.subcategory}"
+        return entry.adp_number or entry.subcategory or ""
+
+    def get_week_entry_sort_key(entry: DailyActivityEntry):
+        return (
+            entry.start_time or time.max,
+            entry.entry_order or 0,
+            entry.id or 0,
+        )
+
+    def build_week_day_review(log: DailyActivityLog | None, sort_mode: str):
+        if not log or not log.entries:
+            return {"groups": [], "day_total": 0.0}
+
+        entries = list(log.entries)
+        day_total = sum(entry.duration_hours or 0.0 for entry in entries)
+
+        def make_group(label, group_entries, kind=""):
+            ordered_entries = sorted(group_entries, key=get_week_entry_sort_key)
+            return {
+                "label": label,
+                "kind": kind,
+                "entries": ordered_entries,
+                "subtotal": sum(entry.duration_hours or 0.0 for entry in ordered_entries),
+            }
+
+        if sort_mode == "time":
+            return {
+                "groups": [make_group("Entries by Time", entries, "time")],
+                "day_total": day_total,
+            }
+
+        groups = []
+        project_groups = defaultdict(list)
+        admin_entries = []
+        other_groups = defaultdict(list)
+
+        for entry in entries:
+            if entry.category == "Project":
+                project_groups[get_week_entry_project_ref(entry) or "Project"].append(entry)
+            elif entry.category == "Admin":
+                admin_entries.append(entry)
+            else:
+                other_groups[entry.category or "Other"].append(entry)
+
+        for project_ref in sorted(project_groups):
+            groups.append(make_group(project_ref, project_groups[project_ref], "project"))
+        if admin_entries:
+            groups.append(make_group("Admin", admin_entries, "admin"))
+        for label in sorted(other_groups):
+            groups.append(make_group(label, other_groups[label], "other"))
+
+        return {"groups": groups, "day_total": day_total}
+
     @app.route("/daily-activity/week")
     def daily_activity_week():
         selected_date = parse_date_input(request.args.get("date")) or date.today()
+        sort_mode = (request.args.get("sort") or "grouped").strip()
+        if sort_mode not in {"grouped", "time"}:
+            sort_mode = "grouped"
         week_start = get_week_start(selected_date)
         week_end = week_start + timedelta(days=6)
         logs = (
@@ -1264,6 +1355,10 @@ def create_app():
         )
         logs_by_date = {log.date: log for log in logs}
         week_days = [week_start + timedelta(days=offset) for offset in range(7)]
+        week_day_reviews = {
+            day: build_week_day_review(logs_by_date.get(day), sort_mode)
+            for day in week_days
+        }
 
         category_totals = defaultdict(float)
         project_totals = defaultdict(float)
@@ -1282,6 +1377,10 @@ def create_app():
             week_end=week_end,
             week_days=week_days,
             logs_by_date=logs_by_date,
+            week_day_reviews=week_day_reviews,
+            sort_mode=sort_mode,
+            get_week_entry_detail=get_week_entry_detail,
+            get_week_entry_adp_subcategory=get_week_entry_adp_subcategory,
             category_totals=dict(sorted(category_totals.items())),
             project_totals=dict(sorted(project_totals.items())),
             grand_total=grand_total,
@@ -1521,9 +1620,15 @@ def create_app():
             machines = Machine.query.filter_by(project_id=project.id).order_by(Machine.id.asc()).all()
             product_lines = ProductLine.query.filter_by(project_id=project.id).order_by(ProductLine.id.asc()).all()
 
-        time_entries = (
-            TimeEntry.query.filter_by(project_id=project.id)
-            .order_by(TimeEntry.date.desc(), TimeEntry.id.desc())
+        time_entries = get_visible_project_time_entries(project.id)
+        draft_daily_project_entries = (
+            DailyActivityEntry.query.join(DailyActivityLog)
+            .filter(
+                DailyActivityEntry.project_id == project.id,
+                DailyActivityEntry.category == "Project",
+                DailyActivityLog.status != "Submitted",
+            )
+            .order_by(DailyActivityLog.date.desc(), DailyActivityEntry.entry_order.asc(), DailyActivityEntry.id.asc())
             .all()
         )
         comments = (
@@ -1700,6 +1805,7 @@ def create_app():
             project_job_quote_hours=project_job_quote_hours,
             machine_job_quote_hours=machine_job_quote_hours,
             time_entries=time_entries,
+            draft_daily_project_entries=draft_daily_project_entries,
             comments=comments,
             machine_hours=machine_hours,
             machine_entry_counts=machine_entry_counts,
@@ -2371,7 +2477,10 @@ def create_app():
             note=f"Created V{next_version_number}.0 for {source_machine.machine_name}",
         )
 
+        additional_quoted_hours = 0.0
         for wt in selected_jobs:
+            quoted_hours = wt.get("quoted_hours") or 0.0
+            additional_quoted_hours += quoted_hours
             db.session.add(
                 MachineWorkType(
                     machine_id=new_machine.id,
@@ -2386,7 +2495,7 @@ def create_app():
                 version_number=next_version_number,
                 status="N/S",
                 due_date=wt.get("due_date"),
-                quoted_hours=wt.get("quoted_hours") or 0.0,
+                quoted_hours=quoted_hours,
                 incurred_hours=0.0,
             )
             db.session.add(job)
@@ -2400,7 +2509,18 @@ def create_app():
                 note=f"Created {job.version_label} {get_machine_job_label(job)}",
             )
 
-        recalculate_project_quoted_hours(project)
+        old_project_quoted_hours = project.quoted_hours_total or 0.0
+        project.quoted_hours_total = old_project_quoted_hours + additional_quoted_hours
+        audit_field_change(
+            project.id,
+            "project_hours_changed",
+            "quoted_hours_total",
+            old_project_quoted_hours,
+            project.quoted_hours_total,
+            machine_id=new_machine.id,
+            version_number=next_version_number,
+            note=f"Added V{next_version_number}.0 quoted hours only",
+        )
         db.session.commit()
 
         flash(f"Created V{next_version_number}.0 for {source_machine.machine_name}.", "success")

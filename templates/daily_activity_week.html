@@ -15,6 +15,10 @@
       <input type="date" id="week-date" name="date" value="{{ week_start.isoformat() }}">
       <button type="submit" class="btn-mini">Load Week</button>
     </form>
+    <div class="week-sort-actions">
+      <a class="btn-mini {% if sort_mode == 'grouped' %}is-active{% endif %}" href="{{ url_for('daily_activity_week', date=week_start.isoformat(), sort='grouped') }}">Grouped</a>
+      <a class="btn-mini {% if sort_mode == 'time' %}is-active{% endif %}" href="{{ url_for('daily_activity_week', date=week_start.isoformat(), sort='time') }}">Sort by Time</a>
+    </div>
     <a class="btn-secondary" href="{{ url_for('daily_activity') }}">Daily Entry</a>
   </div>
 
@@ -22,6 +26,7 @@
     <section class="daily-activity-main">
       {% for day in week_days %}
       {% set log = logs_by_date.get(day) %}
+      {% set review = week_day_reviews.get(day) %}
       <div class="week-day-block">
         <div class="week-day-header">
           <div>
@@ -34,7 +39,7 @@
           </div>
         </div>
 
-        {% if log and log.entries %}
+        {% if review and review.groups %}
         <div class="table-wrap daily-week-table-wrap">
           <table class="daily-week-table">
             <thead>
@@ -48,27 +53,33 @@
               </tr>
             </thead>
             <tbody>
-              {% for entry in log.entries %}
+              {% for group in review.groups %}
+              <tr class="daily-week-group-row">
+                <td colspan="6">{{ group.label }}</td>
+              </tr>
+              {% for entry in group.entries %}
               <tr>
                 <td>{{ entry.start_time.strftime('%H:%M') if entry.start_time else '' }}</td>
                 <td>{{ "%.2f"|format(entry.duration_hours or 0) }}</td>
                 <td>{{ entry.category }}</td>
-                <td>
-                  {% if entry.project %}
-                    {{ entry.project.na_number or entry.project.edb_number or ('Project ' ~ entry.project_id) }}
-                    {% if entry.machine %} / {{ entry.machine.machine_name }}{% endif %}
-                    {% if entry.machine_job %} / {{ entry.machine_job.work_type }}{% endif %}
-                  {% else %}
-                    -
-                  {% endif %}
-                </td>
-                <td>
-                  {% if entry.adp_number %}{{ entry.adp_number }}{% endif %}
-                  {% if entry.subcategory %}{{ ' - ' if entry.adp_number else '' }}{{ entry.subcategory }}{% endif %}
-                </td>
+                <td>{{ get_week_entry_detail(entry) }}</td>
+                <td>{{ get_week_entry_adp_subcategory(entry) }}</td>
                 <td>{{ entry.notes or '' }}</td>
               </tr>
               {% endfor %}
+              {% if group.entries|length > 1 or group.kind == 'project' %}
+              <tr class="daily-week-subtotal-row">
+                <td colspan="1">Subtotal</td>
+                <td>{{ "%.2f"|format(group.subtotal) }}</td>
+                <td colspan="4">{{ group.label }}</td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+              <tr class="daily-week-total-row">
+                <td>Total</td>
+                <td>{{ "%.2f"|format(review.day_total) }}</td>
+                <td colspan="4">{{ day.strftime('%A') }} total hours</td>
+              </tr>
             </tbody>
           </table>
         </div>

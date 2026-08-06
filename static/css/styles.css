@@ -638,6 +638,24 @@ tbody tr.machine-status-stopped select {
   background-color: #eff4fb;
 }
 
+tr.time-entry-draft-row td {
+  background-color: #fff1dc !important;
+  border-color: #efc88e;
+}
+
+.pending-entry-badge {
+  display: inline-flex;
+  margin-right: 0.45rem;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid #e5ad5b;
+  border-radius: 999px;
+  background: #ffe4bd;
+  color: #7a4b00;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 #projects-table tbody tr.status-completed td {
   background-color: #e3f4e8 !important;
 }
@@ -3240,6 +3258,18 @@ tr:nth-child(even) td {
   justify-content: space-between;
 }
 
+.week-sort-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.week-sort-actions .is-active {
+  background: #1f5caa;
+  color: #ffffff;
+  text-decoration: none;
+}
+
 .daily-date-form label {
   margin: 0;
   font-weight: 800;
@@ -3416,6 +3446,24 @@ tr:nth-child(even) td {
 
 .daily-week-table {
   min-width: 760px;
+}
+
+.daily-week-group-row td {
+  background: #edf4ff !important;
+  color: #1a3f6f;
+  font-weight: 900;
+}
+
+.daily-week-subtotal-row td {
+  background: #f7fbff !important;
+  color: #294266;
+  font-weight: 800;
+}
+
+.daily-week-total-row td {
+  background: #e3f4e8 !important;
+  color: #1f6f4a;
+  font-weight: 900;
 }
 
 .daily-empty-state {

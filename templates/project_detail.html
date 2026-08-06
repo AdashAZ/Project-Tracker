@@ -749,6 +749,29 @@
           </tr>
           {% endif %}
           {% endfor %}
+          {% for entry in draft_daily_project_entries %}
+          <tr class="time-entry-draft-row" data-entry-id="draft-{{ entry.id }}" data-date="{{ entry.daily_log.date.isoformat() if entry.daily_log else '' }}" data-machine="{{ entry.machine.machine_name if entry.machine else 'No machine selected' }}" data-work-type="{{ machine_job_work_labels.get(entry.machine_job_id, entry.machine_job.work_type if entry.machine_job else '') }}" data-hours="{{ entry.duration_hours or 0 }}" data-notes="{{ entry.notes or '' }}">
+            <td>{{ entry.daily_log.date if entry.daily_log else '' }}</td>
+            <td>
+              {% if entry.machine_job %}
+                {{ machine_job_display_labels.get(entry.machine_job_id, entry.machine_job.work_type) }}
+              {% elif entry.machine %}
+                {{ entry.machine.product_line.name if entry.machine.product_line else 'General' }} - {{ entry.machine.machine_name }}
+              {% else %}
+                No machine selected
+              {% endif %}
+            </td>
+            <td>{{ machine_job_work_labels.get(entry.machine_job_id, entry.machine_job.work_type if entry.machine_job else '') }}</td>
+            <td>{{ "%.1f"|format(entry.duration_hours or 0) }}</td>
+            <td>{{ entry.notes or '' }}</td>
+            <td class="row-actions">
+              <span class="pending-entry-badge">Pending daily activity</span>
+              {% if entry.daily_log %}
+              <a href="{{ url_for('daily_activity', date=entry.daily_log.date.isoformat()) }}">Edit Day</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
         </tbody>
       </table>
     </div>

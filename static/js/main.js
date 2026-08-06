@@ -83,6 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const dailyEntriesPayload = document.getElementById("daily-activity-entries-payload");
   const dailyAddRowBtn = document.getElementById("daily-add-row-btn");
   const dailyQuickAdminBtn = document.getElementById("daily-quick-admin-btn");
+  const dailySortTimeBtn = document.getElementById("daily-sort-time-btn");
   const dailyProjectOptionsScript = document.getElementById("daily-activity-project-options");
   const dailyExistingEntriesScript = document.getElementById("daily-activity-existing-entries");
   const dailyDefaultAdpScript = document.getElementById("daily-activity-default-adp");
@@ -398,6 +399,18 @@ document.addEventListener("DOMContentLoaded", () => {
         duration_hours: "1.00",
         category: "Admin",
       });
+      updateDailyTotals();
+    });
+
+    dailySortTimeBtn?.addEventListener("click", () => {
+      const rows = Array.from(dailyActivityList.querySelectorAll("[data-daily-row]"));
+      rows
+        .sort((a, b) => {
+          const aTime = a.querySelector(".daily-start-time")?.value || "99:99";
+          const bTime = b.querySelector(".daily-start-time")?.value || "99:99";
+          return aTime.localeCompare(bTime);
+        })
+        .forEach((row) => dailyActivityList.appendChild(row));
       updateDailyTotals();
     });
 
