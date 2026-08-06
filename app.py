@@ -136,6 +136,8 @@ def create_app():
     os.makedirs(app.instance_path, exist_ok=True)
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
     db.init_app(app)
 
@@ -2956,4 +2958,4 @@ def ensure_project_schema():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="127.0.0.1", port=5000, debug=False)
+    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=True)

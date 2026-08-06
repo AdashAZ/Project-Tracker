@@ -238,10 +238,24 @@ h3 {
   width: 100%;
 }
 
+#machine-work-types-add .machine-work-type-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(180px, 1fr) minmax(92px, 112px) minmax(132px, 150px);
+  gap: 0.45rem;
+  align-items: end;
+}
+
 .machine-work-type-hours,
 .machine-work-type-due-date {
   flex: 0 1 150px;
   min-width: 130px;
+}
+
+#machine-work-types-add .machine-work-type-hours,
+#machine-work-types-add .machine-work-type-due-date {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .machine-work-type-select {
@@ -463,6 +477,13 @@ button:hover {
   border-radius: var(--radius-md);
   border: 1px solid var(--line);
   background-color: #fff;
+}
+
+#machine-work-types-add .machine-work-type-select,
+#machine-work-types-add .machine-work-type-other {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 table {
@@ -2734,6 +2755,24 @@ tr:nth-child(even) td {
   .files-grid {
     grid-template-columns: 1fr;
   }
+
+  .daily-activity-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-summary-panel {
+    position: static;
+  }
+
+  .daily-activity-row {
+    grid-template-columns: 76px 78px 70px minmax(112px, 126px) repeat(3, minmax(150px, 1fr)) minmax(128px, max-content);
+  }
+
+  .daily-adp-field,
+  .daily-subcategory-field,
+  .daily-notes-field {
+    grid-column: span 2;
+  }
 }
 
 @media (max-width: 760px) {
@@ -3196,7 +3235,7 @@ tr:nth-child(even) td {
 
 .daily-activity-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 280px);
   gap: 0.9rem;
   align-items: start;
 }
@@ -3254,13 +3293,27 @@ tr:nth-child(even) td {
 
 .daily-activity-row {
   display: grid;
-  grid-template-columns: 78px 78px 70px 126px minmax(180px, 1.2fr) minmax(150px, 0.9fr) minmax(130px, 0.8fr) 112px minmax(130px, 0.8fr) minmax(180px, 1.2fr) 92px;
+  grid-template-columns: 76px 78px 70px minmax(112px, 126px) repeat(3, minmax(120px, 1fr)) minmax(128px, max-content);
   gap: 0.38rem;
   align-items: end;
   padding: 0.55rem;
   border: 1px solid #d9e3f1;
   border-radius: var(--radius-sm);
   background: #fbfdff;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.daily-adp-field {
+  grid-column: 1 / span 2;
+}
+
+.daily-subcategory-field {
+  grid-column: 3 / span 2;
+}
+
+.daily-notes-field {
+  grid-column: 5 / span 3;
 }
 
 .daily-field {
@@ -3322,9 +3375,19 @@ tr:nth-child(even) td {
 }
 
 .daily-row-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
   gap: 0.25rem;
+  justify-content: end;
+  align-items: end;
+  min-width: 0;
+  grid-column: 8;
+  grid-row: 1;
+}
+
+.daily-row-actions .btn-mini {
+  white-space: nowrap;
+  padding-inline: 0.42rem;
 }
 
 .daily-clear-form {
@@ -3383,5 +3446,17 @@ tr:nth-child(even) td {
 
   .daily-activity-row {
     grid-template-columns: 1fr;
+  }
+
+  .daily-adp-field,
+  .daily-subcategory-field,
+  .daily-notes-field,
+  .daily-row-actions {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .daily-row-actions {
+    justify-content: start;
   }
 }
