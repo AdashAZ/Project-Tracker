@@ -117,18 +117,26 @@
             <div class="dashboard-job-progress-label-row">
               <span class="dashboard-job-progress-label">{{ job.label }}</span>
               <span class="dashboard-job-progress-meta">
+                {% if job.is_status %}
+                <span>Completed</span>
+                {% else %}
                 <span>{{ "%.1f"|format(job.incurred_hours) }} / {{ "%.1f"|format(job.quoted_hours) }}h</span>
+                {% endif %}
                 {% if job.due_dates %}
                 <span class="dashboard-job-due-date">Due: {{ job.due_dates | map('string') | join(', ') }}</span>
                 {% endif %}
               </span>
             </div>
+            {% if job.is_status %}
+            <div class="dashboard-version-complete">All V1.0 milestones are complete</div>
+            {% else %}
             <div class="dash-progress-wrap dash-progress-wrap-job">
               <div class="dash-progress-track">
                 <div class="dash-progress-fill {{ job.pct_class }}" style="width: {{ "%.1f"|format(job.pct_fill) }}%" data-completed="{{ 'true' if job.is_complete else 'false' }}"></div>
               </div>
               <span class="dash-progress-text">{{ "%.1f"|format(job.pct_raw) }}%</span>
             </div>
+            {% endif %}
           </div>
           {% endfor %}
         </div>

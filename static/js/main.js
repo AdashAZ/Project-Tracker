@@ -188,6 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const project = findProject(projectId);
       row.querySelector(".daily-project-id").value = project?.id || "";
       row.querySelector(".daily-project-search").value = project?.label || "";
+      row.querySelector(".daily-subcategory").value = project?.ref || "";
       row.querySelector(".daily-machine-id").value = "";
       row.querySelector(".daily-machine-search").value = "";
       row.querySelector(".daily-machine-job-id").value = "";
@@ -215,13 +216,35 @@ document.addEventListener("DOMContentLoaded", () => {
       const category = row.querySelector(".daily-category")?.value || "";
       const isProject = category === "Project";
       const isSalesSupport = category === "Sales Support";
+      const isAdmin = category === "Admin";
+      const hasNoSubcategory =
+        category === "INM" ||
+        category === "TCB111 - Competency Training" ||
+        category === "TCT333 - Certification Training";
       row.querySelectorAll(".daily-project-field, .daily-machine-field, .daily-job-field").forEach((field) => {
         field.hidden = !isProject;
       });
       const adpField = row.querySelector(".daily-adp-field");
-      if (adpField) adpField.hidden = !isSalesSupport;
+      const subcategoryField = row.querySelector(".daily-subcategory-field");
+      if (adpField) adpField.hidden = !(isSalesSupport || isAdmin);
+      if (subcategoryField) subcategoryField.hidden = hasNoSubcategory;
       const adpInput = row.querySelector(".daily-adp-number");
-      if (isSalesSupport && adpInput && !adpInput.value) adpInput.value = defaultAdp;
+      const subcategoryInput = row.querySelector(".daily-subcategory");
+      if (isAdmin) {
+        if (adpInput) adpInput.value = "OTHER";
+        if (subcategoryInput) subcategoryInput.value = "ADM";
+      } else if (isSalesSupport) {
+        if (adpInput) adpInput.value = defaultAdp;
+        if (subcategoryInput) subcategoryInput.value = "FAU";
+      } else if (hasNoSubcategory) {
+        if (adpInput) adpInput.value = "";
+        if (subcategoryInput) subcategoryInput.value = "";
+      } else if (!isProject) {
+        if (adpInput) adpInput.value = "";
+      } else if (isProject) {
+        const project = findProject(row.querySelector(".daily-project-id")?.value);
+        if (subcategoryInput) subcategoryInput.value = project?.ref || subcategoryInput.value || "";
+      }
       if (!isProject) {
         row.querySelector(".daily-project-id").value = "";
         row.querySelector(".daily-project-search").value = "";

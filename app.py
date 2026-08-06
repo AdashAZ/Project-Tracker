@@ -41,7 +41,16 @@ from sqlalchemy import case, desc
 ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
 MACHINE_STATUS_OPTIONS = ["N/S", "WIP", "Stopped", "In Review", "Completed"]
 WORK_TYPE_OPTIONS = ["RA", "SC", "VV", "SOL", "SISTEMA", "BOM", "ConSC", "ConRA", "Other"]
-DAILY_ACTIVITY_CATEGORIES = ["Project", "Admin", "INM", "Sales Support", "Training", "Travel", "Other"]
+DAILY_ACTIVITY_CATEGORIES = [
+    "Project",
+    "Admin",
+    "INM",
+    "Sales Support",
+    "TCB111 - Competency Training",
+    "TCT333 - Certification Training",
+    "Travel",
+    "Other",
+]
 SALES_SUPPORT_ADP_NUMBER = "600-303100"
 MACHINE_MILESTONE_DEFINITIONS = [
     {
@@ -357,6 +366,81 @@ def create_app():
         return parsed, None
 
     def build_project_job_progress_rows(project: Project, time_entries):
+        project_jobs = [
+            job
+            for machine in project.machines
+            for job in machine.jobs
+        ]
+        if project_jobs:
+            rows = []
+
+            def job_milestones_complete(job):
+                return all(
+                    bool(getattr(job, item["field"]) or getattr(job, item["na_field"], False))
+                    for item in MACHINE_MILESTONE_DEFINITIONS
+                )
+
+            v1_jobs = [
+                job
+                for job in project_jobs
+                if (job.machine.version_number or job.version_number or 1) == 1
+            ]
+            v1_complete = bool(v1_jobs) and all(job_milestones_complete(job) for job in v1_jobs)
+            if v1_complete:
+                rows.append(
+                    {
+                        "label": "V1.0 Completed",
+                        "is_status": True,
+                        "quoted_hours": sum(job.quoted_hours or 0.0 for job in v1_jobs),
+                        "incurred_hours": sum(
+                            (entry.hours or 0.0)
+                            for entry in time_entries
+                            if entry.machine_job_id in {job.id for job in v1_jobs}
+                        ) or sum(job.incurred_hours or 0.0 for job in v1_jobs),
+                        "due_dates": sorted({job.due_date for job in v1_jobs if job.due_date}),
+                    }
+                )
+
+            latest_version = max((job.machine.version_number or job.version_number or 1) for job in project_jobs)
+            if latest_version > 1:
+                grouped_jobs = defaultdict(list)
+                for job in project_jobs:
+                    job_version = job.machine.version_number or job.version_number or 1
+                    if job_version == latest_version:
+                        grouped_jobs[get_machine_job_label(job)].append(job)
+
+                for label, jobs in sorted(grouped_jobs.items()):
+                    job_ids = {job.id for job in jobs}
+                    quoted_hours = sum(job.quoted_hours or 0.0 for job in jobs)
+                    if quoted_hours <= 0:
+                        continue
+                    incurred_hours = sum(
+                        (entry.hours or 0.0)
+                        for entry in time_entries
+                        if entry.machine_job_id in job_ids
+                    )
+                    if incurred_hours <= 0:
+                        incurred_hours = sum(job.incurred_hours or 0.0 for job in jobs)
+                    pct_raw = (incurred_hours / quoted_hours * 100.0) if quoted_hours else 0.0
+                    pct_fill = 100.0 if pct_raw > 100 else (0.0 if pct_raw < 0 else pct_raw)
+                    rows.append(
+                        {
+                            "label": f"V{latest_version}.0 - {label}",
+                            "quoted_hours": quoted_hours,
+                            "incurred_hours": incurred_hours,
+                            "pct_raw": pct_raw,
+                            "pct_fill": pct_fill,
+                            "pct_class": get_progress_bucket(pct_raw),
+                            "is_complete": pct_raw >= 100.0,
+                            "due_dates": sorted({job.due_date for job in jobs if job.due_date}),
+                        }
+                    )
+
+                return rows
+
+            if v1_complete:
+                return rows
+
         if not project.job_quotes:
             return []
 
@@ -565,6 +649,7 @@ def create_app():
             options.append(
                 {
                     "id": project.id,
+                    "ref": project_ref,
                     "label": f"{project_ref} - {project.customer or 'No customer'} - {project.location or 'No location'}",
                     "machines": machines,
                 }
@@ -589,6 +674,8 @@ def create_app():
                 continue
 
             category = (item.get("category") or "").strip()
+            if category == "Training":
+                category = "TCB111 - Competency Training"
             duration_raw = (item.get("duration_hours") or "").strip()
             start_raw = (item.get("start_time") or "").strip()
             subcategory = (item.get("subcategory") or "").strip()
@@ -651,11 +738,19 @@ def create_app():
                         )
                         if machine_job is None:
                             row_errors.append("select a valid active project machine/job")
+                        else:
+                            project_ref = machine_job.machine.project.na_number or machine_job.machine.project.edb_number or f"Project {machine_job.machine.project_id}"
+                            subcategory = project_ref
+                            adp_number = ""
+            elif category == "Admin":
+                adp_number = "OTHER"
+                subcategory = "ADM"
             elif category == "Sales Support":
-                adp_number = adp_number or SALES_SUPPORT_ADP_NUMBER
-                if not adp_number:
-                    row_errors.append("enter an ADP number")
-
+                adp_number = SALES_SUPPORT_ADP_NUMBER
+                subcategory = "FAU"
+            elif category in {"INM", "TCB111 - Competency Training", "TCT333 - Certification Training"}:
+                subcategory = ""
+                adp_number = ""
             if row_errors and strict:
                 errors.append(f"Row {index}: {', '.join(row_errors)}.")
             elif row_errors and not strict:
@@ -1086,7 +1181,7 @@ def create_app():
                         "start_time": entry.start_time.strftime("%H:%M") if entry.start_time else "",
                         "end_time": entry.end_time.strftime("%H:%M") if entry.end_time else "",
                         "duration_hours": entry.duration_hours or 0.0,
-                        "category": entry.category or "",
+                        "category": "TCB111 - Competency Training" if entry.category == "Training" else (entry.category or ""),
                         "project_id": entry.project_id or "",
                         "machine_id": entry.machine_id or "",
                         "machine_job_id": entry.machine_job_id or "",

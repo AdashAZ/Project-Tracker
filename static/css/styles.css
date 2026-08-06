@@ -870,6 +870,19 @@ tbody tr.machine-status-stopped select {
   white-space: nowrap;
 }
 
+.dashboard-version-complete {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 0.18rem;
+  padding: 0.18rem 0.48rem;
+  border: 1px solid #92c7a1;
+  border-radius: 999px;
+  background: #e3f4e8;
+  color: #1f6f4a;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
 .dash-progress-wrap-job {
   min-width: 0;
   gap: 0.45rem;
@@ -3356,6 +3369,7 @@ tr:nth-child(even) td {
 .daily-project-field[hidden],
 .daily-machine-field[hidden],
 .daily-job-field[hidden],
+.daily-subcategory-field[hidden],
 .daily-adp-field[hidden] {
   display: none;
 }
