@@ -46,55 +46,55 @@ SALES_SUPPORT_ADP_NUMBER = "600-303100"
 MACHINE_MILESTONE_DEFINITIONS = [
     {
         "key": "cas_approval",
-        "label": "Report CAS Approval Date",
+        "label": "CAS Approval",
         "field": "report_cas_approval_date",
         "na_field": "report_cas_approval_na",
     },
     {
         "key": "sent_customer",
-        "label": "Report Sent to Customer Date",
+        "label": "Report Sent to PM",
         "field": "report_sent_customer_date",
         "na_field": "report_sent_customer_na",
     },
     {
         "key": "sent_review_edb",
-        "label": "Report Sent for Review in EDB",
+        "label": "EDB Report in Review",
         "field": "report_sent_review_edb_date",
         "na_field": "report_sent_review_edb_na",
     },
     {
         "key": "released_edb",
-        "label": "Released in EDB",
+        "label": "EDB Released",
         "field": "released_in_edb_date",
         "na_field": "released_in_edb_na",
     },
     {
         "key": "uploaded_s_drive_reports",
-        "label": "Uploaded to S Drive - REPORT(s)",
+        "label": "Report on S Drive",
         "field": "uploaded_s_drive_reports_date",
         "na_field": "uploaded_s_drive_reports_na",
     },
     {
         "key": "uploaded_s_drive_jsa",
-        "label": "Uploaded to S Drive - JSA",
+        "label": "JSA on S Drive",
         "field": "uploaded_s_drive_jsa_date",
         "na_field": "uploaded_s_drive_jsa_na",
     },
     {
         "key": "uploaded_s_drive_photos",
-        "label": "Uploaded to S Drive - PHOTOS",
+        "label": "Photos on S Drive",
         "field": "uploaded_s_drive_photos_date",
         "na_field": "uploaded_s_drive_photos_na",
     },
     {
         "key": "uploaded_s_drive_vizio",
-        "label": "Uploaded to S Drive - VIZIO",
+        "label": "VIZIO on S Drive",
         "field": "uploaded_s_drive_vizio_date",
         "na_field": "uploaded_s_drive_vizio_na",
     },
     {
         "key": "log_updated",
-        "label": "Log Updated",
+        "label": "Machine LOG Updated",
         "field": "log_updated_date",
         "na_field": "log_updated_na",
     },
@@ -708,13 +708,9 @@ def create_app():
                 return True
         if TimeEntry.query.filter_by(machine_job_id=job.id).count() > 0:
             return True
-        if (job.quoted_hours or 0.0) > 0:
-            return True
         if (job.incurred_hours or 0.0) > 0:
             return True
         if job.status and job.status != "N/S":
-            return True
-        if job.due_date:
             return True
         return any(
             getattr(job, item["field"]) or getattr(job, item["na_field"], False)
@@ -734,7 +730,7 @@ def create_app():
             if key in desired_keys:
                 continue
             if machine_job_has_history(job):
-                return f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, hours, due date, or milestone dates."
+                return f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, incurred hours, child versions, or milestone dates."
             db.session.delete(job)
 
         existing_keys = {
@@ -2106,11 +2102,12 @@ def create_app():
 
         if machine_job_has_history(job):
             flash(
-                f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, hours, due date, or milestone dates.",
+                f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, incurred hours, child versions, or milestone dates.",
                 "error",
             )
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
+        machine = job.machine
         MachineWorkType.query.filter_by(
             machine_id=job.machine_id,
             work_type=job.work_type,
@@ -2118,6 +2115,20 @@ def create_app():
         ).delete()
         removed_quote_hours = subtract_deleted_machine_job_quote(project, job)
         db.session.delete(job)
+        db.session.flush()
+
+        remaining_job_count = MachineJob.query.filter_by(machine_id=machine.id).count()
+        if remaining_job_count == 0 and not machine.versions:
+            audit_change(
+                project.id,
+                "machine_deleted",
+                machine_id=machine.id,
+                note=f"Deleted empty machine shell {machine.machine_name}",
+            )
+            MachineWorkType.query.filter_by(machine_id=machine.id).delete()
+            db.session.delete(machine)
+
+        recalculate_project_quoted_hours(project)
         db.session.commit()
 
         if removed_quote_hours > 0:

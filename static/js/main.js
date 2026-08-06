@@ -50,6 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const dailyActivityForm = document.getElementById("daily-activity-form");
   const dailyEntriesPayload = document.getElementById("daily-activity-entries-payload");
   const dailyAddRowBtn = document.getElementById("daily-add-row-btn");
+  const dailyQuickAdminBtn = document.getElementById("daily-quick-admin-btn");
   const dailyProjectOptionsScript = document.getElementById("daily-activity-project-options");
   const dailyExistingEntriesScript = document.getElementById("daily-activity-existing-entries");
   const dailyDefaultAdpScript = document.getElementById("daily-activity-default-adp");
@@ -88,6 +89,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     const formatHours = (hours) => Number(hours || 0).toFixed(2);
+
+    const getLastEndTime = () => {
+      const rows = Array.from(dailyActivityList.querySelectorAll("[data-daily-row]"));
+      for (let index = rows.length - 1; index >= 0; index -= 1) {
+        updateEndTime(rows[index]);
+        const endTime = rows[index].querySelector(".daily-end-time")?.value || "";
+        if (endTime) return endTime;
+      }
+      return "";
+    };
 
     const findProject = (projectId) => dailyProjects.find((project) => String(project.id) === String(projectId));
     const findMachine = (project, machineId) => (project?.machines || []).find((machine) => String(machine.id) === String(machineId));
@@ -266,6 +277,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const addDailyRow = (data = {}) => {
+      const rowData = { ...data };
+      if (!Object.prototype.hasOwnProperty.call(rowData, "start_time")) {
+        rowData.start_time = getLastEndTime();
+      }
       const row = dailyActivityTemplate.content.firstElementChild.cloneNode(true);
       dailyActivityList.appendChild(row);
 
@@ -307,7 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
         updateDailyTotals();
       });
 
-      applyRowData(row, data);
+      applyRowData(row, rowData);
       return row;
     };
 
@@ -319,6 +334,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     dailyAddRowBtn?.addEventListener("click", () => {
       addDailyRow({ duration_hours: "0.50", category: "Project" });
+      updateDailyTotals();
+    });
+
+    dailyQuickAdminBtn?.addEventListener("click", () => {
+      addDailyRow({
+        start_time: getLastEndTime(),
+        duration_hours: "1.00",
+        category: "Admin",
+      });
       updateDailyTotals();
     });
 
