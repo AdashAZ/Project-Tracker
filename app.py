@@ -16,7 +16,7 @@ from flask import (
     flash,
     session,
 )
-from sqlalchemy import text, case
+from sqlalchemy import text, case, or_
 from urllib.parse import quote
 from markupsafe import Markup, escape
 
@@ -33,13 +33,14 @@ from models import (
     DailyActivityPosting,
     Comment,
     MachineWorkType,
+    AuditLog,
 )
 from admin import admin_bp
 from sqlalchemy import case, desc
 
 ALLOWED_STATUSES = {"N/S", "WIP", "Stopped", "In Review", "Completed"}
 MACHINE_STATUS_OPTIONS = ["N/S", "WIP", "Stopped", "In Review", "Completed"]
-WORK_TYPE_OPTIONS = ["RA", "SC", "VV", "SOL", "Other"]
+WORK_TYPE_OPTIONS = ["RA", "SC", "VV", "SOL", "SISTEMA", "BOM", "ConSC", "ConRA", "Other"]
 DAILY_ACTIVITY_CATEGORIES = ["Project", "Admin", "INM", "Sales Support", "Training", "Travel", "Other"]
 SALES_SUPPORT_ADP_NUMBER = "600-303100"
 MACHINE_MILESTONE_DEFINITIONS = [
@@ -200,6 +201,8 @@ def create_app():
 
             work_type = (item.get("work_type") or "").strip()
             other_description = (item.get("other_description") or "").strip()
+            quoted_hours_raw = item.get("quoted_hours")
+            due_date_raw = (item.get("due_date") or "").strip()
 
             if work_type not in WORK_TYPE_OPTIONS:
                 return None, "Invalid work type selected."
@@ -209,14 +212,26 @@ def create_app():
 
             key = (work_type, other_description)
             if key in seen:
-                continue
+                return None, "Each work type can only be entered once per machine version."
             seen.add(key)
+
+            quoted_hours = parse_float_input(str(quoted_hours_raw) if quoted_hours_raw not in (None, "") else None)
+            if quoted_hours is None:
+                quoted_hours = 0.0
+            if quoted_hours < 0:
+                return None, "Quoted hours must be a valid non-negative number."
+
+            due_date = parse_date_input(due_date_raw)
+            if due_date_raw and due_date is None:
+                return None, "Job due dates must be valid dates."
 
             parsed.append(
                 {
                     "work_type": work_type,
                     "other_description": other_description or None,
                     "label": format_work_type_label(work_type, other_description),
+                    "quoted_hours": quoted_hours,
+                    "due_date": due_date,
                 }
             )
 
@@ -224,6 +239,57 @@ def create_app():
             return None, "At least one work type is required."
 
         return parsed, None
+
+    def serialize_audit_value(value):
+        if value is None:
+            return None
+        if isinstance(value, (date, datetime)):
+            return value.isoformat()
+        return str(value)
+
+    def audit_change(project_id: int, change_type: str, field_name: str | None = None, old_value=None, new_value=None, machine_id: int | None = None, machine_job_id: int | None = None, version_number: int | None = None, note: str | None = None):
+        db.session.add(
+            AuditLog(
+                actor=session.get("username") or session.get("user") or "system",
+                project_id=project_id,
+                machine_id=machine_id,
+                machine_job_id=machine_job_id,
+                version_number=version_number,
+                change_type=change_type,
+                field_name=field_name,
+                old_value=serialize_audit_value(old_value),
+                new_value=serialize_audit_value(new_value),
+                note=note,
+            )
+        )
+
+    def audit_field_change(project_id: int, change_type: str, field_name: str, old_value, new_value, machine_id: int | None = None, machine_job_id: int | None = None, version_number: int | None = None, note: str | None = None):
+        if serialize_audit_value(old_value) == serialize_audit_value(new_value):
+            return
+        audit_change(
+            project_id,
+            change_type,
+            field_name,
+            old_value,
+            new_value,
+            machine_id=machine_id,
+            machine_job_id=machine_job_id,
+            version_number=version_number,
+            note=note,
+        )
+
+    def recalculate_project_quoted_hours(project: Project):
+        job_total = (
+            db.session.query(db.func.coalesce(db.func.sum(MachineJob.quoted_hours), 0.0))
+            .join(Machine)
+            .filter(Machine.project_id == project.id)
+            .scalar()
+        ) or 0.0
+        quote_total = sum((quote.quoted_hours or 0.0) for quote in project.job_quotes)
+        if job_total > 0:
+            project.quoted_hours_total = job_total
+        elif quote_total > 0:
+            project.quoted_hours_total = quote_total
 
     def parse_job_quotes_payload(payload_raw: str | None):
         if not payload_raw:
@@ -792,9 +858,14 @@ def create_app():
 
         return milestone_values, row_complete
 
-    def project_machine_job_anchor(project_id, job_id):
+    def project_machine_job_anchor(project_id, job_id, highlight: str | None = None):
         scroll_y = (request.form.get("scroll_y") or "").strip()
-        restore_param = f"?scroll_y={quote(scroll_y)}" if scroll_y.isdigit() else ""
+        params = []
+        if scroll_y.isdigit():
+            params.append(f"scroll_y={quote(scroll_y)}")
+        if highlight:
+            params.append(f"highlight={quote(highlight)}")
+        restore_param = f"?{'&'.join(params)}" if params else ""
         return url_for("project_detail", project_id=project_id) + restore_param + f"#machine-job-{job_id}"
 
     def subtract_deleted_machine_job_quote(project: Project, job: MachineJob):
@@ -855,7 +926,7 @@ def create_app():
             versions_by_root[root_id].append(machine)
 
         for version_list in versions_by_root.values():
-            version_list.sort(key=lambda item: ((item.version_number or 1), item.id))
+            version_list.sort(key=lambda item: ((item.version_number or 1), item.id), reverse=True)
 
         machine_jobs_by_machine = defaultdict(list)
         for job in machine_jobs:
@@ -1652,6 +1723,12 @@ def create_app():
         )
         db.session.add(machine)
         db.session.flush()
+        audit_change(
+            project.id,
+            "machine_created",
+            machine_id=machine.id,
+            note=f"Created machine {machine.machine_name}",
+        )
 
         # Add work types
         for wt in parsed_work_types:
@@ -1662,7 +1739,19 @@ def create_app():
                     other_description=wt["other_description"],
                 )
             )
-            get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
+            job = get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
+            job.quoted_hours = wt.get("quoted_hours") or 0.0
+            job.due_date = wt.get("due_date")
+            audit_change(
+                project.id,
+                "job_created",
+                machine_id=machine.id,
+                machine_job_id=job.id,
+                version_number=job.version_number,
+                note=f"Added {get_machine_job_label(job)} to {machine.machine_name}",
+            )
+
+        recalculate_project_quoted_hours(project)
 
         db.session.commit()
 
@@ -1786,10 +1875,15 @@ def create_app():
             flash("Invalid Log Updated date.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
 
-        sync_error = sync_machine_jobs_from_work_types(machine, parsed_work_types)
-        if sync_error:
-            flash(sync_error, "error")
-            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+        if target_job is not None and len(parsed_work_types) != 1:
+            flash("Edit one work type for the selected job row.", "error")
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id, edit_job=target_job.id) + "#machines")
+
+        if target_job is None:
+            sync_error = sync_machine_jobs_from_work_types(machine, parsed_work_types)
+            if sync_error:
+                flash(sync_error, "error")
+                return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
         if target_job_id:
             target_job = MachineJob.query.filter_by(id=target_job_id, machine_id=machine.id).first()
             if target_job is None:
@@ -1809,27 +1903,66 @@ def create_app():
             "log_updated_date": log_updated,
         }
 
+        audit_field_change(project.id, "machine_updated", "machine_name", machine.machine_name, machine_name, machine_id=machine.id)
+        audit_field_change(project.id, "machine_updated", "product_line_id", machine.product_line_id, product_line_id_value, machine_id=machine.id)
         machine.machine_name = machine_name
         machine.product_line_id = product_line_id_value
         machine.version = version
         machine.nctp = nctp
 
         if target_job is not None:
+            selected_work_type = parsed_work_types[0]
+            duplicate_job = MachineJob.query.filter(
+                MachineJob.machine_id == machine.id,
+                MachineJob.id != target_job.id,
+                MachineJob.version_number == (target_job.version_number or 1),
+                MachineJob.work_type == selected_work_type["work_type"],
+                MachineJob.other_description == selected_work_type["other_description"],
+            ).first()
+            if duplicate_job:
+                flash("That work type already exists for this asset/version.", "error")
+                return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id, edit_job=target_job.id) + "#machines")
+
+            old_job_label = get_machine_job_label(target_job)
+            old_status = target_job.status
+            old_due_date = target_job.due_date
+            old_quoted_hours = target_job.quoted_hours
+            old_incurred_hours = target_job.incurred_hours
+
+            target_job.work_type = selected_work_type["work_type"]
+            target_job.other_description = selected_work_type["other_description"]
             target_job.status = status
             target_job.due_date = job_due_date
             target_job.quoted_hours = quoted_hours if quoted_hours is not None else 0.0
             target_job.incurred_hours = incurred_hours if incurred_hours is not None else 0.0
+            audit_field_change(project.id, "work_type_changed", "work_type", old_job_label, get_machine_job_label(target_job), machine_id=machine.id, machine_job_id=target_job.id, version_number=target_job.version_number)
+            audit_field_change(project.id, "job_status_changed", "status", old_status, target_job.status, machine_id=machine.id, machine_job_id=target_job.id, version_number=target_job.version_number)
+            audit_field_change(project.id, "job_hours_changed", "quoted_hours", old_quoted_hours, target_job.quoted_hours, machine_id=machine.id, machine_job_id=target_job.id, version_number=target_job.version_number)
+            audit_field_change(project.id, "job_hours_changed", "manual_incurred_hours", old_incurred_hours, target_job.incurred_hours, machine_id=machine.id, machine_job_id=target_job.id, version_number=target_job.version_number)
+            audit_field_change(project.id, "job_due_date_changed", "due_date", old_due_date, target_job.due_date, machine_id=machine.id, machine_job_id=target_job.id, version_number=target_job.version_number)
             na_fields_by_date_field = {
                 item["field"]: item["na_field"]
                 for item in MACHINE_MILESTONE_DEFINITIONS
             }
             for field, value in milestone_updates.items():
+                old_value = getattr(target_job, field)
                 setattr(target_job, field, value)
                 if value:
                     setattr(target_job, na_fields_by_date_field[field], False)
+                audit_field_change(project.id, "milestone_changed", field, old_value, value, machine_id=machine.id, machine_job_id=target_job.id, version_number=target_job.version_number)
 
         MachineWorkType.query.filter_by(machine_id=machine.id).delete()
-        for wt in parsed_work_types:
+        work_types_to_store = parsed_work_types
+        if target_job is not None:
+            work_types_to_store = [
+                {
+                    "work_type": job.work_type,
+                    "other_description": job.other_description,
+                }
+                for job in MachineJob.query.filter_by(machine_id=machine.id).order_by(MachineJob.id.asc()).all()
+            ]
+
+        for wt in work_types_to_store:
             db.session.add(
                 MachineWorkType(
                     machine_id=machine.id,
@@ -1839,6 +1972,7 @@ def create_app():
             )
             get_or_create_machine_job(machine, wt["work_type"], wt["other_description"])
 
+        recalculate_project_quoted_hours(project)
         db.session.commit()
 
         flash("Job row updated.", "success")
@@ -1874,11 +2008,13 @@ def create_app():
             flash("Invalid job status value.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
+        old_status = job.status
         job.status = new_status
+        audit_field_change(project.id, "job_status_changed", "status", old_status, new_status, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
         db.session.commit()
 
         flash("Job status updated.", "success")
-        return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+        return redirect(project_machine_job_anchor(project.id, job.id, "status"))
 
     @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/set_today", methods=["POST"])
     def set_machine_job_milestone_today(project_id, job_id, milestone_key):
@@ -1895,12 +2031,17 @@ def create_app():
             flash("Invalid milestone field.", "error")
             return redirect(project_machine_job_anchor(project.id, job.id))
 
-        setattr(job, field, datetime.today().date())
+        old_value = getattr(job, field)
+        old_na_value = getattr(job, na_field, False)
+        new_value = datetime.today().date()
+        setattr(job, field, new_value)
         setattr(job, na_field, False)
+        audit_field_change(project.id, "milestone_changed", field, old_value, new_value, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
+        audit_field_change(project.id, "milestone_changed", na_field, old_na_value, False, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
         db.session.commit()
 
         flash("Job milestone updated to today.", "success")
-        return redirect(project_machine_job_anchor(project.id, job.id))
+        return redirect(project_machine_job_anchor(project.id, job.id, milestone_key))
 
     @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/mark_na", methods=["POST"])
     def mark_machine_job_milestone_na(project_id, job_id, milestone_key):
@@ -1917,12 +2058,16 @@ def create_app():
             flash("Invalid milestone field.", "error")
             return redirect(project_machine_job_anchor(project.id, job.id))
 
+        old_value = getattr(job, field)
+        old_na_value = getattr(job, na_field, False)
         setattr(job, field, None)
         setattr(job, na_field, True)
+        audit_field_change(project.id, "milestone_changed", field, old_value, None, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
+        audit_field_change(project.id, "milestone_changed", na_field, old_na_value, True, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
         db.session.commit()
 
         flash("Job milestone marked N/A.", "success")
-        return redirect(project_machine_job_anchor(project.id, job.id))
+        return redirect(project_machine_job_anchor(project.id, job.id, milestone_key))
 
     @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/clear", methods=["POST"])
     def clear_machine_job_milestone(project_id, job_id, milestone_key):
@@ -1939,12 +2084,16 @@ def create_app():
             flash("Invalid milestone field.", "error")
             return redirect(project_machine_job_anchor(project.id, job.id))
 
+        old_value = getattr(job, field)
+        old_na_value = getattr(job, na_field, False)
         setattr(job, field, None)
         setattr(job, na_field, False)
+        audit_field_change(project.id, "milestone_changed", field, old_value, None, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
+        audit_field_change(project.id, "milestone_changed", na_field, old_na_value, False, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
         db.session.commit()
 
         flash("Job milestone cleared.", "success")
-        return redirect(project_machine_job_anchor(project.id, job.id))
+        return redirect(project_machine_job_anchor(project.id, job.id, milestone_key))
 
     @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/delete", methods=["POST"])
     def delete_machine_job(project_id, job_id):
@@ -2030,49 +2179,82 @@ def create_app():
         flash("Machine / Asset # deleted.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-    @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/versions/create", methods=["POST"])
-    def create_machine_job_version(project_id, job_id):
+    @app.route("/projects/<int:project_id>/machines/<int:machine_id>/versions/create", methods=["POST"])
+    def create_machine_version(project_id, machine_id):
         project = Project.query.get_or_404(project_id)
-        source_job = (
-            MachineJob.query.join(Machine)
-            .filter(MachineJob.id == job_id, Machine.project_id == project.id)
-            .first_or_404()
-        )
-
-        if source_job.status != "Completed":
-            flash("Mark this job row Completed before creating the next version.", "error")
+        source_machine = Machine.query.filter_by(id=machine_id, project_id=project.id).first_or_404()
+        version_jobs_payload_raw = request.form.get("version_jobs_payload")
+        selected_jobs, selected_jobs_error = parse_work_types_payload(version_jobs_payload_raw, require_one=True)
+        if selected_jobs_error:
+            flash(selected_jobs_error, "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        family_root_job = get_machine_job_version_root(source_job)
-        family_versions = [family_root_job] + sorted(
-            list(family_root_job.versions),
-            key=lambda item: ((item.version_number or 1), item.id),
-        )
+        root_id = get_machine_version_root(source_machine)
+        family_machines = Machine.query.filter(
+            Machine.project_id == project.id,
+            or_(Machine.id == root_id, Machine.parent_machine_id == root_id),
+        ).all()
+        max_version_number = max((machine.version_number or 1) for machine in family_machines)
+        next_version_number = max_version_number + 1
 
-        next_version_number = (source_job.version_number or 1) + 1
-        if next_version_number > 3:
-            flash("Only V1.0 through V3.0 are supported for job versions.", "error")
+        if any((machine.version_number or 1) == next_version_number for machine in family_machines):
+            flash(f"V{next_version_number}.0 already exists for this asset.", "error")
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        if any((job.version_number or 1) == next_version_number for job in family_versions):
-            flash(f"V{next_version_number}.0 already exists for this job.", "error")
-            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
-
-        clone = MachineJob(
-            machine_id=source_job.machine_id,
-            parent_job_id=family_root_job.id,
-            work_type=source_job.work_type,
-            other_description=source_job.other_description,
-            version_number=next_version_number,
+        new_machine = Machine(
+            project_id=project.id,
+            product_line_id=source_machine.product_line_id,
+            machine_name=source_machine.machine_name,
             status="N/S",
-            due_date=source_job.due_date,
-            quoted_hours=source_job.quoted_hours or 0.0,
-            incurred_hours=0.0,
+            parent_machine_id=root_id,
+            version_number=next_version_number,
+            version=f"V{next_version_number}.0",
+            nctp=source_machine.nctp,
         )
-        db.session.add(clone)
+        db.session.add(new_machine)
+        db.session.flush()
+
+        audit_change(
+            project.id,
+            "version_created",
+            machine_id=new_machine.id,
+            version_number=next_version_number,
+            note=f"Created V{next_version_number}.0 for {source_machine.machine_name}",
+        )
+
+        for wt in selected_jobs:
+            db.session.add(
+                MachineWorkType(
+                    machine_id=new_machine.id,
+                    work_type=wt["work_type"],
+                    other_description=wt["other_description"],
+                )
+            )
+            job = MachineJob(
+                machine_id=new_machine.id,
+                work_type=wt["work_type"],
+                other_description=wt["other_description"],
+                version_number=next_version_number,
+                status="N/S",
+                due_date=wt.get("due_date"),
+                quoted_hours=wt.get("quoted_hours") or 0.0,
+                incurred_hours=0.0,
+            )
+            db.session.add(job)
+            db.session.flush()
+            audit_change(
+                project.id,
+                "job_created",
+                machine_id=new_machine.id,
+                machine_job_id=job.id,
+                version_number=next_version_number,
+                note=f"Created {job.version_label} {get_machine_job_label(job)}",
+            )
+
+        recalculate_project_quoted_hours(project)
         db.session.commit()
 
-        flash(f"Created {clone.version_label} for {get_machine_job_label(source_job)}.", "success")
+        flash(f"Created V{next_version_number}.0 for {source_machine.machine_name}.", "success")
         return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
     @app.route("/projects/<int:project_id>/status", methods=["POST"])

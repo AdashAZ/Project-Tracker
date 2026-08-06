@@ -2,6 +2,7 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   const restoreScrollParam = new URLSearchParams(window.location.search).get("scroll_y");
+  const highlightParam = new URLSearchParams(window.location.search).get("highlight");
   if (restoreScrollParam !== null) {
     const restoreScrollY = Number.parseInt(restoreScrollParam, 10);
     if (Number.isFinite(restoreScrollY)) {
@@ -11,6 +12,19 @@ document.addEventListener("DOMContentLoaded", () => {
         window.history.replaceState({}, "", cleanUrl);
       }, 0);
     }
+  }
+
+  if (highlightParam) {
+    window.setTimeout(() => {
+      const targetRow = document.querySelector(window.location.hash || "");
+      const highlightTarget = targetRow?.querySelector(`[data-highlight-key="${CSS.escape(highlightParam)}"]`) || targetRow;
+      if (highlightTarget) {
+        highlightTarget.classList.add("cell-update-highlight");
+        window.setTimeout(() => highlightTarget.classList.remove("cell-update-highlight"), 3500);
+      }
+      const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+      window.history.replaceState({}, "", cleanUrl);
+    }, 80);
   }
 
   document.querySelectorAll(".milestone-preserve-scroll").forEach((form) => {
@@ -524,6 +538,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       payload.push({ work_type: workType, other_description: otherDescription });
+      const latestItem = payload[payload.length - 1];
+      latestItem.quoted_hours = row.querySelector(".machine-work-type-hours")?.value || "0";
+      latestItem.due_date = row.querySelector(".machine-work-type-due-date")?.value || "";
     });
 
     if (payload.length === 0) {
@@ -982,6 +999,36 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const machineWorkTypeRowTemplate = document.getElementById("machine-work-type-row-template");
+  const addMachineForm = document.getElementById("add-machine-form");
+  if (addMachineForm) {
+    const addMachinePayloadInput = document.getElementById("add-machine-work-types-payload");
+    const addMachineWorkTypeList = document.getElementById("machine-work-types-add");
+    const addMachineWorkTypeBtn = document.getElementById("add-work-type-btn");
+
+    addMachineWorkTypeList?.querySelectorAll("[data-work-type-row]").forEach((row) => bindWorkTypeRowInteractions(row));
+
+    if (addMachineWorkTypeBtn && addMachineWorkTypeList && machineWorkTypeRowTemplate) {
+      addMachineWorkTypeBtn.addEventListener("click", () => {
+        const row = machineWorkTypeRowTemplate.content.firstElementChild.cloneNode(true);
+        addMachineWorkTypeList.insertBefore(row, addMachineWorkTypeBtn);
+        bindWorkTypeRowInteractions(row);
+      });
+    }
+
+    addMachineForm.addEventListener("submit", (event) => {
+      const rows = addMachineWorkTypeList?.querySelectorAll("[data-work-type-row]") || [];
+      const { payload, hasError } = serializeWorkTypeRows(rows);
+      if (hasError) {
+        event.preventDefault();
+        alert("Machine must include at least one valid work type. Other requires a description.");
+        return;
+      }
+      if (addMachinePayloadInput) {
+        addMachinePayloadInput.value = JSON.stringify(payload);
+      }
+    });
+  }
+
   const machineEditors = Array.from(document.querySelectorAll("[data-machine-work-types-editor]"));
   machineEditors.forEach((editor) => {
     const list = editor.querySelector("[data-machine-work-types-list]");
@@ -1094,6 +1141,79 @@ document.addEventListener("DOMContentLoaded", () => {
     bindProjectEditJobQuoteRow(row);
     refreshProjectEditJobQuoteRemoveButtons();
   }
+
+  // ---------------------------
+  // Project detail: next version creation
+  // ---------------------------
+  document.querySelectorAll(".version-create-form").forEach((form) => {
+    const toggleBtn = form.querySelector("[data-toggle-version-form]");
+    const cancelBtn = form.querySelector("[data-cancel-version-form]");
+    const panel = form.querySelector(".version-create-panel");
+    const payloadInput = form.querySelector(".version-jobs-payload");
+
+    toggleBtn?.addEventListener("click", () => {
+      if (!panel) return;
+      panel.hidden = !panel.hidden;
+    });
+
+    cancelBtn?.addEventListener("click", () => {
+      if (panel) panel.hidden = true;
+    });
+
+    form.addEventListener("submit", (event) => {
+      const selected = [];
+      const seen = new Set();
+      form.querySelectorAll(".version-job-option").forEach((row) => {
+        const checkbox = row.querySelector(".version-job-check");
+        if (!checkbox?.checked) return;
+        const workType = checkbox.dataset.workType || "";
+        const otherDescription = checkbox.dataset.otherDescription || "";
+        const key = `${workType}::${otherDescription}`;
+        if (!workType || seen.has(key)) return;
+        seen.add(key);
+        selected.push({
+          work_type: workType,
+          other_description: otherDescription,
+          quoted_hours: row.querySelector(".version-job-hours")?.value || "0",
+          due_date: row.querySelector(".version-job-due-date")?.value || "",
+        });
+      });
+
+      if (selected.length === 0) {
+        event.preventDefault();
+        alert("Select at least one job to create for the next version.");
+        return;
+      }
+
+      if (payloadInput) {
+        payloadInput.value = JSON.stringify(selected);
+      }
+    });
+  });
+
+  // ---------------------------
+  // Project detail: completed job row collapse
+  // ---------------------------
+  document.querySelectorAll("[data-machine-job-row][data-complete='true']").forEach((row) => {
+    const key = `safety-tracker:job-expanded:${row.dataset.jobId}`;
+    const milestoneCell = row.querySelector(".milestone-panel-cell");
+    if (!milestoneCell) return;
+
+    const applyCollapsedState = () => {
+      const expanded = window.localStorage.getItem(key) === "true";
+      row.classList.toggle("machine-complete-collapsed", !expanded);
+      row.setAttribute("aria-expanded", expanded ? "true" : "false");
+    };
+
+    row.addEventListener("click", (event) => {
+      if (event.target.closest("a, button, input, select, textarea, form, label")) return;
+      const expanded = row.getAttribute("aria-expanded") === "true";
+      window.localStorage.setItem(key, expanded ? "false" : "true");
+      applyCollapsedState();
+    });
+
+    applyCollapsedState();
+  });
 
   const serializeProjectEditJobQuoteRows = () => {
     const payload = [];
@@ -1243,160 +1363,6 @@ document.addEventListener("DOMContentLoaded", () => {
     commentsSection.style.display = "";
     commentsButton.classList.add("is-active");
   }
-
-  // ---------------------------
-  // Project detail: V2.0 button functionality
-  // ---------------------------
-  const v2AddButtons = Array.from(document.querySelectorAll(".btn-v2-add"));
-  v2AddButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const machineId = button.dataset.machineId;
-      if (!machineId) return;
-
-      const projectUrl = window.location.pathname;
-      const projectId = projectUrl.match(/\/projects\/(\d+)/)?.[1];
-      if (!projectId) return;
-
-      // Get the machine row to extract product line ID
-      const machineRow = button.closest("tr");
-      const productLineId = machineRow.dataset.productLineId;
-
-      // Create a new machine with the same name and other columns
-      const machineName = machineRow.querySelector("td").textContent.trim();
-      const productLineName = machineName.split(" - ")[0];
-      const originalMachineName = machineName.split(" - ")[1];
-
-      // Create a new machine name with V2.0 suffix
-      const newMachineName = `${originalMachineName} V2.0`;
-
-      // Get work types from the machine work types map
-      const machineWorkTypesMapScript = document.getElementById("machine-work-types-map");
-      let machineWorkTypesMap = {};
-      if (machineWorkTypesMapScript?.textContent) {
-        try {
-          machineWorkTypesMap = JSON.parse(machineWorkTypesMapScript.textContent);
-        } catch {
-          machineWorkTypesMap = {};
-        }
-      }
-
-      const workTypes = machineWorkTypesMap[machineId] || [];
-
-      // Create a form to submit the new machine
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = `/projects/${projectId}/machines`;
-
-      // Create hidden input for CSRF token
-      const csrfInput = document.createElement("input");
-      csrfInput.type = "hidden";
-      csrfInput.name = "_csrf_token";
-      csrfInput.value = document.querySelector('input[name="_csrf_token"]').value;
-
-      // Create hidden input for machine name
-      const machineNameInput = document.createElement("input");
-      machineNameInput.type = "hidden";
-      machineNameInput.name = "machine_name";
-      machineNameInput.value = newMachineName;
-
-      // Create hidden input for product line - use existing product line ID
-      const productLineInput = document.createElement("input");
-      productLineInput.type = "hidden";
-      productLineInput.name = "product_line_id";
-      productLineInput.value = productLineId || "";
-
-      // Create hidden input for work types payload
-      const workTypesInput = document.createElement("input");
-      workTypesInput.type = "hidden";
-      workTypesInput.name = "work_types_payload";
-      workTypesInput.value = JSON.stringify(workTypes.map(workType => ({ work_type: workType, other_description: null })));
-
-      form.appendChild(csrfInput);
-      form.appendChild(machineNameInput);
-      form.appendChild(productLineInput);
-      form.appendChild(workTypesInput);
-
-      document.body.appendChild(form);
-      form.submit();
-    });
-  });
-
-  // ---------------------------
-  // Project detail: V3.0 button functionality
-  // ---------------------------
-  const v3AddButtons = Array.from(document.querySelectorAll(".btn-v3-add"));
-  v3AddButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const machineId = button.dataset.machineId;
-      if (!machineId) return;
-
-      const projectUrl = window.location.pathname;
-      const projectId = projectUrl.match(/\/projects\/(\d+)/)?.[1];
-      if (!projectId) return;
-
-      // Get the machine row to extract product line ID
-      const machineRow = button.closest("tr");
-      const productLineId = machineRow.dataset.productLineId;
-
-      // Create a new machine with the same name and other columns
-      const machineName = machineRow.querySelector("td").textContent.trim();
-      const productLineName = machineName.split(" - ")[0];
-      const originalMachineName = machineName.split(" - ")[1];
-
-      // Create a new machine name with V3.0 suffix
-      const newMachineName = originalMachineName.replace(/ V2\.0$/, ' V3.0') + (originalMachineName.endsWith(' V2.0') ? '' : ' V3.0');
-
-      // Get work types from the machine work types map
-      const machineWorkTypesMapScript = document.getElementById("machine-work-types-map");
-      let machineWorkTypesMap = {};
-      if (machineWorkTypesMapScript?.textContent) {
-        try {
-          machineWorkTypesMap = JSON.parse(machineWorkTypesMapScript.textContent);
-        } catch {
-          machineWorkTypesMap = {};
-        }
-      }
-
-      const workTypes = machineWorkTypesMap[machineId] || [];
-
-      // Create a form to submit the new machine
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = `/projects/${projectId}/machines`;
-
-      // Create hidden input for CSRF token
-      const csrfInput = document.createElement("input");
-      csrfInput.type = "hidden";
-      csrfInput.name = "_csrf_token";
-      csrfInput.value = document.querySelector('input[name="_csrf_token"]').value;
-
-      // Create hidden input for machine name
-      const machineNameInput = document.createElement("input");
-      machineNameInput.type = "hidden";
-      machineNameInput.name = "machine_name";
-      machineNameInput.value = newMachineName;
-
-      // Create hidden input for product line - use existing product line ID
-      const productLineInput = document.createElement("input");
-      productLineInput.type = "hidden";
-      productLineInput.name = "product_line_id";
-      productLineInput.value = productLineId || "";
-
-      // Create hidden input for work types payload
-      const workTypesInput = document.createElement("input");
-      workTypesInput.type = "hidden";
-      workTypesInput.name = "work_types_payload";
-      workTypesInput.value = JSON.stringify(workTypes.map(workType => ({ work_type: workType, other_description: null })));
-
-      form.appendChild(csrfInput);
-      form.appendChild(machineNameInput);
-      form.appendChild(productLineInput);
-      form.appendChild(workTypesInput);
-
-      document.body.appendChild(form);
-      form.submit();
-    });
-  });
 
   // ---------------------------
   // Custom modal functionality

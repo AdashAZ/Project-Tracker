@@ -55,6 +55,12 @@ class Project(db.Model):
         lazy=True,
         cascade="all, delete-orphan"
     )
+    audit_logs = db.relationship(
+        "AuditLog",
+        backref="project",
+        lazy=True,
+        cascade="all, delete-orphan"
+    )
 
     @property
     def days_left(self) -> int | None:
@@ -401,3 +407,20 @@ class MachineJob(db.Model):
     def version_label(self) -> str:
         version_num = self.version_number or 1
         return f"V{version_num}.0"
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    actor = db.Column(db.String(255))
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False)
+    machine_id = db.Column(db.Integer, db.ForeignKey("machines.id"), nullable=True)
+    machine_job_id = db.Column(db.Integer, db.ForeignKey("machine_jobs.id"), nullable=True)
+    version_number = db.Column(db.Integer, nullable=True)
+    change_type = db.Column(db.String(100), nullable=False)
+    field_name = db.Column(db.String(100))
+    old_value = db.Column(db.Text)
+    new_value = db.Column(db.Text)
+    note = db.Column(db.Text)

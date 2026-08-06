@@ -240,8 +240,9 @@
       <span class="section-caption">Track status, hours, and milestone dates per machine</span>
     </div>
 
-    <form method="post" action="{{ url_for('add_machine', project_id=project.id) }}">
+    <form method="post" action="{{ url_for('add_machine', project_id=project.id) }}" id="add-machine-form">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="work_types_payload" id="add-machine-work-types-payload" value="[]">
       <div class="form-inline">
         <label for="machine_name">Machine / Asset # *</label>
         <input type="text" id="machine_name" name="machine_name" required>
@@ -273,6 +274,8 @@
                     {% endfor %}
                   </select>
                   <input type="text" class="machine-work-type-other" name="other_description" placeholder="Describe other work" style="display: none;">
+                  <input type="number" step="0.1" min="0" class="machine-work-type-hours" placeholder="Quoted hrs">
+                  <input type="date" class="machine-work-type-due-date" aria-label="Job due date">
                   </div>
                 <button type="button" class="btn-mini" id="add-work-type-btn">Add Work Type</button>
               </div>
@@ -311,7 +314,7 @@
           {% for job in machine_jobs_for_row %}
           {% set tracked_hours = machine_job_hours.get(job.id, 0.0) %}
           {% set job_label = machine_job_work_labels.get(job.id, '') %}
-          <tr id="machine-job-{{ job.id }}" class="machine-status-{{ job.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_job_row_complete.get(job.id) %} machine-complete-row{% endif %}" data-product-line-id="{{ machine.product_line_id }}">
+          <tr id="machine-job-{{ job.id }}" class="machine-status-{{ job.status|lower|replace('/', '-')|replace(' ', '-') }}{% if machine_job_row_complete.get(job.id) %} machine-complete-row{% endif %}" data-product-line-id="{{ machine.product_line_id }}" data-machine-job-row data-job-id="{{ job.id }}" data-complete="{{ 'true' if machine_job_row_complete.get(job.id) else 'false' }}">
             <td>{{ machine.product_line.name if machine.product_line else 'General' }}</td>
             <td>
               <div class="machine-name-stack">
@@ -320,7 +323,7 @@
               </div>
             </td>
             <td class="machine-col-job"><span class="job-pill">{{ job_label }}</span></td>
-            <td class="machine-col-status">
+            <td class="machine-col-status" data-highlight-key="status">
               <form method="post" action="{{ url_for('update_machine_job_status', project_id=project.id, job_id=job.id) }}">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <select name="status" class="machine-status-select" onchange="this.form.submit()">
@@ -351,7 +354,7 @@
                 {% for milestone in milestone_definitions %}
                 {% set milestone_state = machine_job_milestones[job.id][milestone.key] %}
                 {% set milestone_value = milestone_state["date"] %}
-                <div class="milestone-panel-item {% if milestone_state['is_handled'] %}milestone-done{% endif %}{% if milestone_state['is_missing'] %} milestone-missing{% endif %}">
+                <div class="milestone-panel-item {% if milestone_state['is_handled'] %}milestone-done{% endif %}{% if milestone_state['is_missing'] %} milestone-missing{% endif %}" data-highlight-key="{{ milestone.key }}">
                   <div class="milestone-panel-label">{{ milestone.label }}</div>
                   <div class="milestone-inline-row">
                     <div class="milestone-date">
@@ -442,21 +445,34 @@
                   </span>
                 </div>
                   <div class="machine-version-strip-actions">
-                    {% if version_block.is_ready_for_copy and not version_block.has_next_version and (machine.version_number or 1) < 3 %}
+                    {% if not version_block.has_next_version %}
                       {% set next_version_number = (machine.version_number or 1) + 1 %}
                       {% if machine_jobs_for_row %}
-                        {% set rep_job = machine_jobs_for_row[0] %}
                         <form method="post"
-                              action="{{ url_for('create_machine_job_version', project_id=project.id, job_id=rep_job.id) }}"
-                              onsubmit="return confirm('Create V{{ next_version_number }}.0 for this job row?');">
+                              action="{{ url_for('create_machine_version', project_id=project.id, machine_id=machine.id) }}"
+                              class="version-create-form">
                           <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                          <button type="submit" class="btn-mini">Add V{{ next_version_number }}.0</button>
+                          <input type="hidden" name="version_jobs_payload" class="version-jobs-payload" value="[]">
+                          <button type="button" class="btn-mini" data-toggle-version-form>Add V{{ next_version_number }}.0</button>
+                          <div class="version-create-panel" hidden>
+                            {% for source_job in machine_jobs_for_row %}
+                            {% set source_label = machine_job_work_labels.get(source_job.id, '') %}
+                            <label class="version-job-option">
+                              <input type="checkbox" class="version-job-check" data-work-type="{{ source_job.work_type }}" data-other-description="{{ source_job.other_description or '' }}">
+                              <span>{{ source_label }}</span>
+                              <input type="number" step="0.1" min="0" class="version-job-hours" placeholder="Quoted hrs">
+                              <input type="date" class="version-job-due-date" aria-label="{{ source_label }} due date">
+                            </label>
+                            {% endfor %}
+                            <div class="version-create-actions">
+                              <button type="submit" class="btn-mini">Create V{{ next_version_number }}.0</button>
+                              <button type="button" class="btn-mini btn-secondary" data-cancel-version-form>Cancel</button>
+                            </div>
+                          </div>
                         </form>
                       {% endif %}
                     {% elif version_block.has_next_version %}
                       <span class="machine-version-strip-note">Next version exists</span>
-                    {% elif not version_block.is_ready_for_copy %}
-                      <span class="machine-version-strip-note">Complete any job row to unlock the next version</span>
                     {% endif %}
                   </div>
               </div>
@@ -561,9 +577,20 @@
                 <div class="machine-work-types-editor" data-machine-work-types-editor>
                   <div class="machine-work-types-header">
                     <strong>Machine Work Types *</strong>
-                    <button type="button" class="btn-mini" data-machine-work-type-add>Add Work Type</button>
+                    {% if not edit_job %}<button type="button" class="btn-mini" data-machine-work-type-add>Add Work Type</button>{% endif %}
                   </div>
                   <div class="machine-work-types-list" data-machine-work-types-list>
+                    {% if edit_job %}
+                    <div class="machine-work-type-row" data-work-type-row>
+                      <select class="machine-work-type-select">
+                        <option value="">-- Select --</option>
+                        {% for option in work_type_options %}
+                        <option value="{{ option }}" {% if edit_job.work_type == option %}selected{% endif %}>{{ option }}</option>
+                        {% endfor %}
+                      </select>
+                      <input type="text" class="machine-work-type-other" value="{{ edit_job.other_description or '' }}" placeholder="Describe other work" {% if edit_job.work_type != 'Other' %}style="display: none;"{% endif %}>
+                    </div>
+                    {% else %}
                     {% for wt in machine_work_type_rows.get(machine.id, []) %}
                     <div class="machine-work-type-row" data-work-type-row>
                       <select class="machine-work-type-select">
@@ -575,6 +602,7 @@
                       <input type="text" class="machine-work-type-other" value="{{ wt.other_description }}" placeholder="Describe other work" {% if wt.work_type != 'Other' %}style="display: none;"{% endif %}>
                     </div>
                     {% endfor %}
+                    {% endif %}
                   </div>
                 </div>
 
@@ -824,6 +852,8 @@
         {% endfor %}
       </select>
       <input type="text" class="machine-work-type-other" placeholder="Describe other work" style="display: none;">
+      <input type="number" step="0.1" min="0" class="machine-work-type-hours" placeholder="Quoted hrs">
+      <input type="date" class="machine-work-type-due-date" aria-label="Job due date">
     </div>
   </template>
   <template id="project-edit-job-quote-row-template">
@@ -994,57 +1024,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Work type selection functionality for adding machines
-  const addWorkTypeBtn = document.getElementById('add-work-type-btn');
-
-
-
-  // Work type selection functionality for adding machines
-  const addWorkTypeBtn = document.getElementById('add-work-type-btn');
-  const workTypesContainer = document.getElementById('machine-work-types-add');
-  const template = document.getElementById('machine-work-types-template');
-
-  if (addWorkTypeBtn && workTypesContainer) {
-    addWorkTypeBtn.addEventListener('click', () => {
-      const newRow = document.createElement('div');
-      newRow.className = 'machine-work-type-row';
-      newRow.innerHTML = `
-        <select class="machine-work-type-select" name="work_types">
-          <option value="">-- Select --</option>
-          {% for option in work_type_options %}
-          <option value="{{ option }}">{{ option }}</option>
-          {% endfor %}
-        </select>
-        <input type="text" class="machine-work-type-other" name="other_description" placeholder="Describe other work" style="display: none;">
-      `;
-      
-      // Insert before the button
-      workTypesContainer.insertBefore(newRow, addWorkTypeBtn);
-      
-      // Add event listener to the new select
-      const select = newRow.querySelector('.machine-work-type-select');
-      select.addEventListener('change', function() {
-        const otherInput = newRow.querySelector('.machine-work-type-other');
-        if (this.value === 'Other') {
-          otherInput.style.display = 'block';
-        } else {
-          otherInput.style.display = 'none';
-        }
-      });
-    });
-
-    // Add event listeners to existing work type selects
-    workTypesContainer.querySelectorAll('.machine-work-type-select').forEach(select => {
-      select.addEventListener('change', function() {
-        const otherInput = this.parentElement.querySelector('.machine-work-type-other');
-        if (this.value === 'Other') {
-          otherInput.style.display = 'block';
-        } else {
-          otherInput.style.display = 'none';
-        }
-      });
-    });
-  }
 });
 </script>
 {% endblock %}
