@@ -36,6 +36,38 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll("[data-edit-milestone-date]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const form = button.parentElement?.querySelector(".milestone-date-edit-form");
+      const input = form?.querySelector('input[type="date"]');
+      if (!form || !input) return;
+      button.hidden = true;
+      form.hidden = false;
+      input.focus();
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+      }
+    });
+  });
+
+  document.querySelectorAll(".milestone-date-edit-form input[type='date']").forEach((input) => {
+    input.addEventListener("change", () => {
+      input.form?.requestSubmit();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        input.form?.requestSubmit();
+      }
+      if (event.key === "Escape") {
+        const form = input.closest(".milestone-date-edit-form");
+        const button = form?.parentElement?.querySelector("[data-edit-milestone-date]");
+        if (form) form.hidden = true;
+        if (button) button.hidden = false;
+      }
+    });
+  });
+
   document.querySelectorAll("[data-auto-submit-date]").forEach((input) => {
     input.addEventListener("change", () => {
       input.form?.submit();
@@ -1419,6 +1451,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     modalConfirm.addEventListener('click', () => {
       if (pendingForm) {
+        const scrollInput = pendingForm.querySelector('input[name="scroll_y"]');
+        if (scrollInput) {
+          scrollInput.value = String(Math.max(Math.round(window.scrollY), 0));
+        }
         pendingForm.submit();
       }
       hideModal();
@@ -1430,18 +1466,21 @@ document.addEventListener("DOMContentLoaded", () => {
       if (submitBtn) {
         submitBtn.addEventListener('click', (e) => {
           const formAction = form.action || '';
+          const confirmMessage = form.dataset.confirmMessage || '';
           const isDelete = formAction.includes('delete') || formAction.includes('Delete');
           const isClear = formAction.includes('clear') || formAction.includes('Clear');
-          const isSetToday = formAction.includes('set_today') || formAction.includes('Set Today');
           const isOverwrite = formAction.includes('overwrite') || formAction.includes('Overwrite');
 
-          if (isDelete) {
+          if (confirmMessage) {
+            e.preventDefault();
+            showModal('Confirm Update', confirmMessage, form);
+          } else if (isDelete) {
             e.preventDefault();
             showModal('Confirm Deletion', 'Are you sure you want to delete this item? This action cannot be undone.', form);
           } else if (isClear) {
             e.preventDefault();
             showModal('Confirm Clear', 'Are you sure you want to clear this date?', form);
-          } else if (isSetToday || isOverwrite) {
+          } else if (isOverwrite) {
             e.preventDefault();
             showModal('Confirm Update', 'This will overwrite the existing date with today. Continue?', form);
           }

@@ -279,17 +279,26 @@ def create_app():
         )
 
     def recalculate_project_quoted_hours(project: Project):
-        job_total = (
+        base_job_total = (
             db.session.query(db.func.coalesce(db.func.sum(MachineJob.quoted_hours), 0.0))
             .join(Machine)
-            .filter(Machine.project_id == project.id)
+            .filter(
+                Machine.project_id == project.id,
+                (Machine.version_number.is_(None)) | (Machine.version_number <= 1),
+            )
+            .scalar()
+        ) or 0.0
+        version_extra_total = (
+            db.session.query(db.func.coalesce(db.func.sum(MachineJob.quoted_hours), 0.0))
+            .join(Machine)
+            .filter(
+                Machine.project_id == project.id,
+                Machine.version_number > 1,
+            )
             .scalar()
         ) or 0.0
         quote_total = sum((quote.quoted_hours or 0.0) for quote in project.job_quotes)
-        if job_total > 0:
-            project.quoted_hours_total = job_total
-        elif quote_total > 0:
-            project.quoted_hours_total = quote_total
+        project.quoted_hours_total = max(quote_total, base_job_total) + version_extra_total
 
     def parse_job_quotes_payload(payload_raw: str | None):
         if not payload_raw:
@@ -2037,6 +2046,38 @@ def create_app():
         db.session.commit()
 
         flash("Job milestone updated to today.", "success")
+        return redirect(project_machine_job_anchor(project.id, job.id, milestone_key))
+
+    @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/set_date", methods=["POST"])
+    def set_machine_job_milestone_date(project_id, job_id, milestone_key):
+        project = Project.query.get_or_404(project_id)
+        job = (
+            MachineJob.query.join(Machine)
+            .filter(MachineJob.id == job_id, Machine.project_id == project.id)
+            .first_or_404()
+        )
+        field = MILESTONE_FIELD_BY_KEY.get(milestone_key)
+        na_field = MILESTONE_NA_FIELD_BY_KEY.get(milestone_key)
+
+        if not field or not na_field:
+            flash("Invalid milestone field.", "error")
+            return redirect(project_machine_job_anchor(project.id, job.id))
+
+        date_raw = (request.form.get("milestone_date") or "").strip()
+        milestone_date = parse_date_input(date_raw)
+        if not date_raw or milestone_date is None:
+            flash("Enter a valid milestone date.", "error")
+            return redirect(project_machine_job_anchor(project.id, job.id, milestone_key))
+
+        old_value = getattr(job, field)
+        old_na_value = getattr(job, na_field, False)
+        setattr(job, field, milestone_date)
+        setattr(job, na_field, False)
+        audit_field_change(project.id, "milestone_changed", field, old_value, milestone_date, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
+        audit_field_change(project.id, "milestone_changed", na_field, old_na_value, False, machine_id=job.machine_id, machine_job_id=job.id, version_number=job.version_number)
+        db.session.commit()
+
+        flash("Job milestone date updated.", "success")
         return redirect(project_machine_job_anchor(project.id, job.id, milestone_key))
 
     @app.route("/projects/<int:project_id>/machine_jobs/<int:job_id>/milestones/<string:milestone_key>/mark_na", methods=["POST"])

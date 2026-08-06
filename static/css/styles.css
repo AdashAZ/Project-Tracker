@@ -1736,6 +1736,24 @@ tbody tr.machine-status-stopped select {
   line-height: 1.15;
 }
 
+.milestone-date-display {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.milestone-date-edit-form input[type="date"] {
+  width: 8.8rem;
+  min-width: 0;
+  padding: 0.14rem 0.22rem;
+  font-size: 0.72rem;
+}
+
 .milestone-actions {
   display: flex;
   gap: 0.25rem;

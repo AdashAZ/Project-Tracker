@@ -359,7 +359,17 @@
                   <div class="milestone-inline-row">
                     <div class="milestone-date">
                       {% if milestone_value %}
-                        {{ milestone_value.isoformat() }}
+                        <button type="button" class="milestone-date-display" data-edit-milestone-date>{{ milestone_value.isoformat() }}</button>
+                        <form
+                          class="milestone-date-edit-form milestone-preserve-scroll"
+                          method="post"
+                          action="{{ url_for('set_machine_job_milestone_date', project_id=project.id, job_id=job.id, milestone_key=milestone.key) }}"
+                          hidden
+                        >
+                          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                          <input type="hidden" name="scroll_y" value="">
+                          <input type="date" name="milestone_date" value="{{ milestone_value.isoformat() }}" aria-label="Edit {{ milestone.label }} date">
+                        </form>
                       {% elif milestone_state["is_na"] %}
                         N/A
                       {% else %}
@@ -371,11 +381,11 @@
                         class="milestone-preserve-scroll"
                         method="post"
                         action="{{ url_for('set_machine_job_milestone_today', project_id=project.id, job_id=job.id, milestone_key=milestone.key) }}"
-                        {% if milestone_value or milestone_state["is_na"] %}onsubmit="return confirm('This will overwrite the existing milestone state with today. Continue?');"{% endif %}
+                        {% if milestone_value or milestone_state["is_na"] %}data-confirm-message="This will overwrite the existing milestone state with today. Continue?"{% endif %}
                       >
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="scroll_y" value="">
-                        <button type="submit" class="btn-mini">Set Today</button>
+                        <button type="submit" class="btn-mini">YES</button>
                       </form>
                       <form
                         class="milestone-preserve-scroll"
