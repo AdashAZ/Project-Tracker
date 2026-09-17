@@ -1339,6 +1339,157 @@ def create_app():
 
         return {"groups": groups, "day_total": day_total}
 
+    def get_week_project_grouped_entries(logs):
+        grouped_by_log = {}
+        for log in logs:
+            grouped = {}
+            for entry in log.entries:
+                if entry.category != "Project":
+                    continue
+                key = (entry.project_id, entry.machine_id, entry.machine_job_id)
+                if key not in grouped:
+                    grouped[key] = {"hours": 0.0, "notes": [], "job": entry.machine_job}
+                grouped[key]["hours"] += entry.duration_hours or 0.0
+                grouped[key]["notes"].append(combine_notes([entry.subcategory, entry.notes]))
+            grouped_by_log[log.id] = grouped
+        return grouped_by_log
+
+    def build_week_submission_review(logs, week_start, week_end):
+        grouped_by_log = get_week_project_grouped_entries(logs)
+        candidate_rows = []
+        for log in logs:
+            existing_postings = {
+                (posting.project_id, posting.machine_id, posting.machine_job_id): posting
+                for posting in log.postings
+            }
+            for (project_id, machine_id, machine_job_id), grouped_item in grouped_by_log.get(log.id, {}).items():
+                project = Project.query.get(project_id)
+                machine = Machine.query.get(machine_id)
+                job = grouped_item["job"] or MachineJob.query.get(machine_job_id)
+                posting = existing_postings.get((project_id, machine_id, machine_job_id))
+                candidate_rows.append(
+                    {
+                        "log": log,
+                        "date": log.date,
+                        "week_start": week_start,
+                        "week_end": week_end,
+                        "project_id": project_id,
+                        "machine_id": machine_id,
+                        "machine_job_id": machine_job_id,
+                        "project_label": (
+                            project.na_number
+                            or project.edb_number
+                            or (f"Project {project.id}" if project else f"Project {project_id}")
+                        ),
+                        "project_name": project.customer if project else "",
+                        "machine_name": machine.machine_name if machine else "",
+                        "job_label": get_machine_job_label(job) if job else "",
+                        "hours": grouped_item["hours"],
+                        "posting": posting,
+                        "time_entry_id": posting.time_entry_id if posting else None,
+                    }
+                )
+
+        linked_time_entry_ids = {
+            row[0]
+            for row in db.session.query(DailyActivityPosting.time_entry_id)
+            .filter(DailyActivityPosting.time_entry_id.isnot(None))
+            .all()
+        }
+
+        for row in candidate_rows:
+            posting = row["posting"]
+            log = row["log"]
+            if posting and log.status == "Submitted":
+                row["state"] = "submitted"
+                row["state_label"] = "Already Submitted"
+                row["state_detail"] = "This project/job is already linked to a project time entry."
+                continue
+            if posting:
+                row["state"] = "needs_review"
+                row["state_label"] = "Needs Review"
+                row["state_detail"] = "This edited day will update its existing project time entry."
+                continue
+
+            duplicate_query = TimeEntry.query.filter(
+                TimeEntry.project_id == row["project_id"],
+                TimeEntry.machine_id == row["machine_id"],
+                TimeEntry.machine_job_id == row["machine_job_id"],
+                TimeEntry.date == row["date"],
+                TimeEntry.hours == row["hours"],
+            )
+            if linked_time_entry_ids:
+                duplicate_query = duplicate_query.filter(~TimeEntry.id.in_(linked_time_entry_ids))
+            duplicate = duplicate_query.first()
+            if duplicate:
+                row["state"] = "duplicate"
+                row["state_label"] = "Potential Duplicate"
+                row["state_detail"] = f"An unlinked project time entry already exists for this date/job ({duplicate.hours:.2f}h)."
+                row["duplicate_time_entry_id"] = duplicate.id
+            else:
+                row["state"] = "unsubmitted"
+                row["state_label"] = "Unsubmitted"
+                row["state_detail"] = "Ready to submit to project time entries."
+
+        counts = defaultdict(int)
+        for row in candidate_rows:
+            counts[row["state"]] += 1
+        return {
+            "rows": candidate_rows,
+            "counts": dict(counts),
+            "has_actionable": bool(counts.get("unsubmitted") or counts.get("needs_review")),
+            "has_duplicates": bool(counts.get("duplicate")),
+            "has_project_hours": bool(candidate_rows),
+        }
+
+    def get_past_unsubmitted_week_summaries(before_week_start):
+        logs = (
+            DailyActivityLog.query
+            .join(DailyActivityEntry)
+            .filter(
+                DailyActivityLog.date < before_week_start,
+                DailyActivityEntry.category == "Project",
+            )
+            .order_by(DailyActivityLog.date.asc())
+            .all()
+        )
+        weeks = {}
+        for log in logs:
+            week_start = get_week_start(log.date)
+            week_end = week_start + timedelta(days=6)
+            weeks.setdefault(
+                week_start,
+                {
+                    "week_start": week_start,
+                    "week_end": week_end,
+                    "hours": 0.0,
+                    "days": set(),
+                },
+            )
+            has_unsubmitted_project_hours = False
+            posted_keys = {
+                (posting.project_id, posting.machine_id, posting.machine_job_id)
+                for posting in log.postings
+            }
+            for entry in log.entries:
+                if entry.category != "Project":
+                    continue
+                key = (entry.project_id, entry.machine_id, entry.machine_job_id)
+                if log.status != "Submitted" or key not in posted_keys:
+                    has_unsubmitted_project_hours = True
+                    weeks[week_start]["hours"] += entry.duration_hours or 0.0
+            if has_unsubmitted_project_hours:
+                weeks[week_start]["days"].add(log.date)
+
+        return [
+            {
+                **summary,
+                "day_count": len(summary["days"]),
+            }
+            for summary in sorted(weeks.values(), key=lambda item: item["week_start"], reverse=True)
+            if summary["hours"] > 0
+        ]
+
     @app.route("/daily-activity/week")
     def daily_activity_week():
         selected_date = parse_date_input(request.args.get("date")) or date.today()
@@ -1371,6 +1522,9 @@ def create_app():
                 if entry.project:
                     project_totals[entry.project.na_number or entry.project.edb_number or f"Project {entry.project_id}"] += hours
 
+        submission_review = build_week_submission_review(logs, week_start, week_end)
+        past_unsubmitted_weeks = get_past_unsubmitted_week_summaries(week_start)
+
         return render_template(
             "daily_activity_week.html",
             week_start=week_start,
@@ -1384,12 +1538,15 @@ def create_app():
             category_totals=dict(sorted(category_totals.items())),
             project_totals=dict(sorted(project_totals.items())),
             grand_total=grand_total,
+            submission_review=submission_review,
+            past_unsubmitted_weeks=past_unsubmitted_weeks,
         )
 
     @app.route("/daily-activity/week/submit", methods=["POST"])
     def submit_daily_activity_week():
         week_start = parse_date_input(request.form.get("week_start")) or get_week_start(date.today())
         week_end = week_start + timedelta(days=6)
+        allow_duplicates = request.form.get("confirm_duplicates") == "1"
         logs = (
             DailyActivityLog.query
             .filter(DailyActivityLog.date >= week_start, DailyActivityLog.date <= week_end)
@@ -1423,17 +1580,27 @@ def create_app():
                 flash(error, "error")
             return redirect(url_for("daily_activity_week", date=week_start.isoformat()))
 
-        for log in logs:
-            grouped = {}
-            for entry in log.entries:
-                if entry.category != "Project":
-                    continue
-                key = (entry.project_id, entry.machine_id, entry.machine_job_id)
-                if key not in grouped:
-                    grouped[key] = {"hours": 0.0, "notes": [], "job": entry.machine_job}
-                grouped[key]["hours"] += entry.duration_hours or 0.0
-                grouped[key]["notes"].append(combine_notes([entry.subcategory, entry.notes]))
+        submission_review = build_week_submission_review(logs, week_start, week_end)
+        duplicate_rows = [row for row in submission_review["rows"] if row["state"] == "duplicate"]
+        if duplicate_rows and not allow_duplicates:
+            flash("Potential duplicate project hours were found. Review the highlighted rows before submitting.", "error")
+            return redirect(url_for("daily_activity_week", date=week_start.isoformat()))
 
+        row_state_by_log_key = {
+            (
+                row["log"].id,
+                row["project_id"],
+                row["machine_id"],
+                row["machine_job_id"],
+            ): row["state"]
+            for row in submission_review["rows"]
+        }
+        grouped_by_log = get_week_project_grouped_entries(logs)
+        submitted_or_updated_count = 0
+        skipped_count = 0
+
+        for log in logs:
+            grouped = grouped_by_log.get(log.id, {})
             existing_postings = {
                 (posting.project_id, posting.machine_id, posting.machine_job_id): posting
                 for posting in log.postings
@@ -1442,12 +1609,22 @@ def create_app():
             for key, posting in list(existing_postings.items()):
                 if key in grouped:
                     continue
+                if log.status == "Submitted":
+                    skipped_count += 1
+                    continue
                 affected_project_ids.add(posting.project_id)
                 if posting.time_entry:
                     db.session.delete(posting.time_entry)
                 db.session.delete(posting)
 
             for (project_id, machine_id, machine_job_id), grouped_item in grouped.items():
+                state = row_state_by_log_key.get((log.id, project_id, machine_id, machine_job_id), "unsubmitted")
+                if state == "submitted":
+                    skipped_count += 1
+                    continue
+                if state == "duplicate" and not allow_duplicates:
+                    skipped_count += 1
+                    continue
                 affected_project_ids.add(project_id)
                 job = grouped_item["job"] or MachineJob.query.get(machine_job_id)
                 notes_summary = combine_notes(grouped_item["notes"])
@@ -1485,6 +1662,7 @@ def create_app():
                 posting.duration_hours = grouped_item["hours"]
                 posting.notes_summary = notes_summary
                 posting.posted_at = datetime.utcnow()
+                submitted_or_updated_count += 1
 
             log.status = "Submitted"
             log.posted_at = datetime.utcnow()
@@ -1494,7 +1672,15 @@ def create_app():
             update_project_incurred_total(project_id)
 
         db.session.commit()
-        flash("Weekly project hours submitted.", "success")
+        if submitted_or_updated_count:
+            message = f"{submitted_or_updated_count} project hour group(s) submitted or updated."
+            if skipped_count:
+                message += f" {skipped_count} already-submitted group(s) left unchanged."
+            flash(message, "success")
+        elif skipped_count:
+            flash("No unsubmitted project hours found for this week; already-submitted hours were left unchanged.", "info")
+        else:
+            flash("No project hours found for this week.", "info")
         return redirect(url_for("daily_activity_week", date=week_start.isoformat()))
 
     @app.route("/projects/new", methods=["GET", "POST"])

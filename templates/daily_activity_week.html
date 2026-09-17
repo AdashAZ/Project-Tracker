@@ -114,12 +114,104 @@
         </div>
       </div>
 
-      <form method="post" action="{{ url_for('submit_daily_activity_week') }}" onsubmit="return confirm('Submit this Monday-Sunday week to project time entries?');">
+      <div class="daily-summary-group">
+        <h3>Submission Status</h3>
+        <div class="daily-summary-list">
+          <div><span>Unsubmitted</span><strong>{{ submission_review.counts.get('unsubmitted', 0) }}</strong></div>
+          <div><span>Needs Review</span><strong>{{ submission_review.counts.get('needs_review', 0) }}</strong></div>
+          <div><span>Already Submitted</span><strong>{{ submission_review.counts.get('submitted', 0) }}</strong></div>
+          <div><span>Potential Duplicates</span><strong>{{ submission_review.counts.get('duplicate', 0) }}</strong></div>
+        </div>
+      </div>
+
+      <form method="post" action="{{ url_for('submit_daily_activity_week') }}" onsubmit="return confirm('Submit only unsubmitted or edited project hours for this Monday-Sunday week? Already-submitted hours will be left unchanged.');">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="week_start" value="{{ week_start.isoformat() }}">
-        <button type="submit">Submit Hours to Projects</button>
+        <button type="submit" {% if not submission_review.has_actionable or submission_review.has_duplicates %}disabled{% endif %}>Submit Missing Hours</button>
       </form>
+
+      {% if submission_review.has_duplicates %}
+      <form method="post" action="{{ url_for('submit_daily_activity_week') }}" onsubmit="return confirm('Potential duplicates are listed on this page. Submit these project hours anyway?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="week_start" value="{{ week_start.isoformat() }}">
+        <input type="hidden" name="confirm_duplicates" value="1">
+        <button type="submit" class="btn-danger">Submit Reviewed Duplicates</button>
+      </form>
+      {% endif %}
     </aside>
   </div>
+
+  <section class="week-submission-review">
+    <div class="section-title-row">
+      <h2>Project Submission Review</h2>
+      <span class="section-caption">Already-submitted rows are skipped by default.</span>
+    </div>
+    {% if submission_review.rows %}
+    <div class="table-wrap daily-week-table-wrap">
+      <table class="daily-week-table week-submission-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Week</th>
+            <th>Date</th>
+            <th>Project</th>
+            <th>Machine / Job</th>
+            <th>Hours</th>
+            <th>Review Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in submission_review.rows %}
+          <tr class="submission-state-{{ row.state }}">
+            <td><span class="submission-status-pill">{{ row.state_label }}</span></td>
+            <td>{{ row.week_start.isoformat() }} through {{ row.week_end.isoformat() }}</td>
+            <td>{{ row.date.isoformat() }}</td>
+            <td>
+              <strong>{{ row.project_label }}</strong>
+              {% if row.project_name %}<span>{{ row.project_name }}</span>{% endif %}
+            </td>
+            <td>{{ row.machine_name }}{% if row.machine_name and row.job_label %} / {% endif %}{{ row.job_label }}</td>
+            <td>{{ "%.2f"|format(row.hours) }}h</td>
+            <td>{{ row.state_detail }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="daily-empty-state">No project hours saved for this week.</div>
+    {% endif %}
+  </section>
+
+  {% if past_unsubmitted_weeks %}
+  <section class="week-submission-review">
+    <div class="section-title-row">
+      <h2>Past Unsubmitted Weeks</h2>
+      <span class="section-caption">Use these links to submit missing project hours week by week.</span>
+    </div>
+    <div class="table-wrap daily-week-table-wrap">
+      <table class="daily-week-table past-unsubmitted-table">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Days With Missing Hours</th>
+            <th>Unsubmitted Hours</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in past_unsubmitted_weeks %}
+          <tr>
+            <td>{{ item.week_start.isoformat() }} through {{ item.week_end.isoformat() }}</td>
+            <td>{{ item.day_count }}</td>
+            <td>{{ "%.2f"|format(item.hours) }}h</td>
+            <td><a class="btn-mini" href="{{ url_for('daily_activity_week', date=item.week_start.isoformat()) }}">Review Week</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

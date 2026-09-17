@@ -3329,6 +3329,16 @@ tr:nth-child(even) td {
   overflow-wrap: anywhere;
 }
 
+.daily-summary-panel form {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.daily-summary-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .daily-activity-list {
   display: grid;
   gap: 0.55rem;
@@ -3473,6 +3483,70 @@ tr:nth-child(even) td {
   background: #f7faff;
   border: 1px dashed #c8d6e8;
   border-radius: var(--radius-sm);
+}
+
+.week-submission-review {
+  display: grid;
+  gap: 0.65rem;
+  border: 1px solid rgba(157, 178, 207, 0.45);
+  background: #ffffff;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+}
+
+.week-submission-table td strong,
+.week-submission-table td span {
+  display: block;
+}
+
+.submission-status-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.submission-state-unsubmitted td {
+  background: #f7fbff;
+}
+
+.submission-state-unsubmitted .submission-status-pill {
+  background: #dbeafe;
+  color: #1d4f91;
+}
+
+.submission-state-needs_review td {
+  background: #fff8e6;
+}
+
+.submission-state-needs_review .submission-status-pill {
+  background: #fde9a8;
+  color: #73510d;
+}
+
+.submission-state-submitted td {
+  background: #f3f7f4;
+  color: #5d6c62;
+}
+
+.submission-state-submitted .submission-status-pill {
+  background: #dbe7dd;
+  color: #35523d;
+}
+
+.submission-state-duplicate td {
+  background: #fff1f0;
+}
+
+.submission-state-duplicate .submission-status-pill {
+  background: #ffd9d6;
+  color: #92231c;
+}
+
+.past-unsubmitted-table {
+  min-width: 640px;
 }
 
 @media (max-width: 760px) {
