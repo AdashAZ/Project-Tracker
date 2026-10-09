@@ -308,7 +308,11 @@ def create_app():
             )
             .scalar()
         ) or 0.0
-        quote_total = sum((quote.quoted_hours or 0.0) for quote in project.job_quotes)
+        quote_total = (
+            db.session.query(db.func.coalesce(db.func.sum(ProjectJobQuote.quoted_hours), 0.0))
+            .filter(ProjectJobQuote.project_id == project.id)
+            .scalar()
+        ) or 0.0
         project.quoted_hours_total = max(quote_total, base_job_total) + version_extra_total
 
     def parse_job_quotes_payload(payload_raw: str | None):
@@ -626,8 +630,14 @@ def create_app():
         options = []
         for project in projects:
             project_ref = project.na_number or project.edb_number or f"Project {project.id}"
+            project_line_ids = {line.id for line in project.product_lines}
+            show_machine_line = len(project_line_ids) > 1
             machines = []
             for machine in sorted(project.machines, key=lambda item: (item.product_line.name if item.product_line else "", item.machine_name, item.id)):
+                product_line_name = machine.product_line.name if machine.product_line else "General"
+                machine_label_parts = [machine.machine_name, machine.version_label]
+                if show_machine_line:
+                    machine_label_parts.insert(0, product_line_name)
                 jobs = []
                 for job in sorted(machine.jobs, key=lambda item: (item.work_type or "", item.other_description or "", item.version_number or 1, item.id)):
                     jobs.append(
@@ -639,7 +649,7 @@ def create_app():
                 machines.append(
                     {
                         "id": machine.id,
-                        "label": f"{machine.product_line.name if machine.product_line else 'General'} - {machine.machine_name} - {machine.version_label}",
+                        "label": " - ".join(machine_label_parts),
                         "jobs": jobs,
                     }
                 )
@@ -647,7 +657,7 @@ def create_app():
                 {
                     "id": project.id,
                     "ref": project_ref,
-                    "label": f"{project_ref} - {project.customer or 'No customer'} - {project.location or 'No location'}",
+                    "label": f"{project.customer or 'No customer'} - {project.location or 'No location'} - {project_ref}",
                     "machines": machines,
                 }
             )
@@ -1910,6 +1920,16 @@ def create_app():
                 if (job.quoted_hours or 0.0) > 0
                 else base_job_quote_hours.get(root_label, 0.0)
             )
+        machine_base_quoted_hours_total = sum(
+            (job.quoted_hours or 0.0)
+            for job in machine_jobs
+            if (job.machine.version_number or 1) <= 1
+        )
+        machine_version_quoted_hours_total = sum(
+            (job.quoted_hours or 0.0)
+            for job in machine_jobs
+            if (job.machine.version_number or 1) > 1
+        )
 
         for machine in machines:
             work_type_rows = get_machine_work_type_rows(machine)
@@ -1990,6 +2010,8 @@ def create_app():
             machine_job_work_labels=machine_job_work_labels,
             project_job_quote_hours=project_job_quote_hours,
             machine_job_quote_hours=machine_job_quote_hours,
+            machine_base_quoted_hours_total=machine_base_quoted_hours_total,
+            machine_version_quoted_hours_total=machine_version_quoted_hours_total,
             time_entries=time_entries,
             draft_daily_project_entries=draft_daily_project_entries,
             comments=comments,
@@ -2615,6 +2637,7 @@ def create_app():
         MachineWorkType.query.filter_by(machine_id=machine.id).delete()
 
         db.session.delete(machine)
+        recalculate_project_quoted_hours(project)
         db.session.commit()
 
         flash("Machine / Asset # deleted.", "success")
@@ -2963,6 +2986,7 @@ def create_app():
                     )
                     job.due_date = quote["due_date"]
 
+            recalculate_project_quoted_hours(project)
 
         elif quoted_hours_total is not None and quoted_hours_total != "":
             parsed_quoted = parse_float_input(quoted_hours_total)

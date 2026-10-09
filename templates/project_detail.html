@@ -189,7 +189,15 @@
 
       <div class="form-group">
         <label for="project-edit-quoted-hours-total">Quoted Hours (Total)</label>
-        <input type="number" step="0.1" id="project-edit-quoted-hours-total" name="quoted_hours_total" value="{{ project.quoted_hours_total or 0 }}">
+        <input
+          type="number"
+          step="0.1"
+          id="project-edit-quoted-hours-total"
+          name="quoted_hours_total"
+          value="{{ project.quoted_hours_total or 0 }}"
+          data-machine-base-quoted-hours="{{ machine_base_quoted_hours_total or 0 }}"
+          data-machine-version-quoted-hours="{{ machine_version_quoted_hours_total or 0 }}"
+        >
       </div>
 
       <div class="quoted-hours-builder">
@@ -1012,9 +1020,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalInput = document.getElementById('project-edit-quoted-hours-total');
     if (!list || !totalInput) return;
 
-    const total = collectJobQuotes(list).reduce((sum, item) => {
+    const quoteTotal = collectJobQuotes(list).reduce((sum, item) => {
       return sum + (parseFloat(item.quoted_hours) || 0);
     }, 0);
+    const machineBaseTotal = parseFloat(totalInput.dataset.machineBaseQuotedHours || '0') || 0;
+    const machineVersionTotal = parseFloat(totalInput.dataset.machineVersionQuotedHours || '0') || 0;
+    const total = Math.max(quoteTotal, machineBaseTotal) + machineVersionTotal;
 
     totalInput.value = total.toFixed(1);
   }

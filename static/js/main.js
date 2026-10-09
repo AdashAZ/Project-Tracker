@@ -1167,6 +1167,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const projectEditAddJobQuoteBtn = document.getElementById("project-edit-add-job-quote-btn");
   const projectEditJobQuotesPayloadInput = document.getElementById("project-edit-job-quotes-payload");
   const projectEditQuotedHoursTotalInput = document.getElementById("project-edit-quoted-hours-total");
+  const getProjectMachineQuotedTotal = () => {
+    if (!projectEditQuotedHoursTotalInput) return { baseTotal: 0, versionTotal: 0 };
+    const baseTotal = Number(projectEditQuotedHoursTotalInput.dataset.machineBaseQuotedHours || 0);
+    const versionTotal = Number(projectEditQuotedHoursTotalInput.dataset.machineVersionQuotedHours || 0);
+    return {
+      baseTotal: Number.isFinite(baseTotal) ? baseTotal : 0,
+      versionTotal: Number.isFinite(versionTotal) ? versionTotal : 0,
+    };
+  };
+  const getProjectQuotedTotal = (jobQuoteTotal) => {
+    const { baseTotal, versionTotal } = getProjectMachineQuotedTotal();
+    return Math.max(jobQuoteTotal, baseTotal) + versionTotal;
+  };
 
   const bindProjectEditJobQuoteRow = (row) => {
     const select = row.querySelector(".job-quote-work-type");
@@ -1355,7 +1368,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateProjectEditQuotedTotal() {
     if (!projectEditQuotedHoursTotalInput) return;
     const { total } = serializeProjectEditJobQuoteRows();
-    projectEditQuotedHoursTotalInput.value = total.toString();
+    projectEditQuotedHoursTotalInput.value = getProjectQuotedTotal(total).toFixed(1);
   }
 
   if (projectEditJobQuoteList) {
@@ -1381,7 +1394,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       projectEditJobQuotesPayloadInput.value = payload.length > 0 ? JSON.stringify(payload) : "";
       if (projectEditQuotedHoursTotalInput && payload.length > 0) {
-        projectEditQuotedHoursTotalInput.value = total.toString();
+        projectEditQuotedHoursTotalInput.value = getProjectQuotedTotal(total).toFixed(1);
       }
     });
   }
