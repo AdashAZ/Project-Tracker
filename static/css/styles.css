@@ -1487,6 +1487,7 @@ tr.time-entry-draft-row td {
 .machine-col-job {
   width: 70px;
   min-width: 70px;
+  white-space: nowrap;
 }
 
 .machine-col-status {
@@ -1753,8 +1754,10 @@ tr.time-entry-draft-row td {
 
 #machines .job-pill {
   display: inline-flex;
-  max-width: 100%;
-  white-space: normal;
+  max-width: none;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .machine-name-stack {
