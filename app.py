@@ -562,22 +562,52 @@ def create_app():
             root = root.parent_job
         return root
 
+    def get_version_job_parent(job: MachineJob):
+        """Return the matching V1 job for a versioned job, including legacy rows."""
+        if job.parent_job:
+            return get_machine_job_version_root(job)
+
+        machine = job.machine
+        if not machine or (machine.version_number or 1) <= 1:
+            return None
+
+        root_machine_id = get_machine_version_root(machine)
+        return MachineJob.query.filter_by(
+            machine_id=root_machine_id,
+            work_type=job.work_type,
+            other_description=job.other_description or None,
+            parent_job_id=None,
+        ).first()
+
     def get_or_create_machine_job(machine: Machine, work_type: str, other_description: str | None = None):
         job = MachineJob.query.filter_by(
             machine_id=machine.id,
             work_type=work_type,
             other_description=other_description or None,
-            parent_job_id=None,
         ).first()
         if job:
             return job
+
+        version_number = machine.version_number or 1
+        parent_job = None
+        if version_number > 1:
+            root_machine_id = get_machine_version_root(machine)
+            parent_job = MachineJob.query.filter_by(
+                machine_id=root_machine_id,
+                work_type=work_type,
+                other_description=other_description or None,
+                parent_job_id=None,
+            ).first()
+            if parent_job is None:
+                raise ValueError("A versioned job requires a matching V1 job.")
 
         job = MachineJob(
             machine_id=machine.id,
             work_type=work_type,
             other_description=other_description or None,
             status="N/S",
-            version_number=1,
+            version_number=version_number,
+            parent_job_id=parent_job.id if parent_job else None,
         )
         db.session.add(job)
         db.session.flush()
@@ -1030,6 +1060,29 @@ def create_app():
 
         project.quoted_hours_total = max((project.quoted_hours_total or 0.0) - hours_to_subtract, 0.0)
         return hours_to_subtract
+
+    def return_version_quote_to_project_job_total(project: Project, job: MachineJob, parent_job: MachineJob):
+        quoted_hours = job.quoted_hours or 0.0
+        if quoted_hours <= 0:
+            return 0.0
+
+        quote = ProjectJobQuote.query.filter_by(
+            project_id=project.id,
+            work_type=parent_job.work_type,
+            other_description=parent_job.other_description,
+        ).first()
+        if quote is None:
+            quote = ProjectJobQuote(
+                project_id=project.id,
+                work_type=parent_job.work_type,
+                other_description=parent_job.other_description,
+                quoted_hours=0.0,
+                due_date=parent_job.due_date,
+            )
+            db.session.add(quote)
+
+        quote.quoted_hours = (quote.quoted_hours or 0.0) + quoted_hours
+        return quoted_hours
 
     def get_machine_version_root(machine: Machine):
         return machine.parent_machine_id or machine.id
@@ -2295,6 +2348,13 @@ def create_app():
             flash("Edit one work type for the selected job row.", "error")
             return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id, edit_job=target_job.id) + "#machines")
 
+        if target_job is None and (machine.version_number or 1) > 1:
+            flash(
+                "Edit V2.0 and later machine jobs individually; their work-type list cannot be changed as a group.",
+                "error",
+            )
+            return redirect(url_for("project_detail", project_id=project.id, edit_machine=machine.id) + "#machines")
+
         if target_job is None:
             sync_error = sync_machine_jobs_from_work_types(machine, parsed_work_types)
             if sync_error:
@@ -2552,6 +2612,80 @@ def create_app():
             .first_or_404()
         )
 
+        machine = job.machine
+        is_version_job = (machine.version_number or 1) > 1
+        if is_version_job:
+            parent_job = get_version_job_parent(job)
+            if parent_job is None:
+                flash("Cannot remove this version because its matching V1 job no longer exists.", "error")
+                return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+            root_machine_id = get_machine_version_root(machine)
+            has_later_version = (
+                MachineJob.query.join(Machine)
+                .filter(
+                    Machine.project_id == project.id,
+                    or_(Machine.id == root_machine_id, Machine.parent_machine_id == root_machine_id),
+                    Machine.version_number > (machine.version_number or 1),
+                    MachineJob.work_type == job.work_type,
+                    MachineJob.other_description == job.other_description,
+                )
+                .first()
+                is not None
+            )
+            if has_later_version:
+                flash("Remove later versions of this job before removing this version.", "error")
+                return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
+            returned_quote_hours = return_version_quote_to_project_job_total(project, job, parent_job)
+            transferred_time_entries = TimeEntry.query.filter_by(machine_job_id=job.id).update(
+                {"machine_id": parent_job.machine_id, "machine_job_id": parent_job.id},
+                synchronize_session=False,
+            )
+            DailyActivityEntry.query.filter_by(machine_job_id=job.id).update(
+                {"machine_id": parent_job.machine_id, "machine_job_id": parent_job.id},
+                synchronize_session=False,
+            )
+            DailyActivityPosting.query.filter_by(machine_job_id=job.id).update(
+                {"machine_id": parent_job.machine_id, "machine_job_id": parent_job.id},
+                synchronize_session=False,
+            )
+
+            MachineWorkType.query.filter_by(
+                machine_id=job.machine_id,
+                work_type=job.work_type,
+                other_description=job.other_description,
+            ).delete()
+            audit_change(
+                project.id,
+                "version_job_deleted",
+                machine_id=machine.id,
+                machine_job_id=job.id,
+                version_number=machine.version_number,
+                note=(
+                    f"Deleted {job.version_label} {get_machine_job_label(job)}; "
+                    f"returned {returned_quote_hours:.1f} quoted hours to {parent_job.version_label} "
+                    f"and transferred {transferred_time_entries} time entries."
+                ),
+            )
+            db.session.delete(job)
+            db.session.flush()
+
+            if MachineJob.query.filter_by(machine_id=machine.id).count() == 0:
+                Comment.query.filter_by(project_id=project.id, machine_id=machine.id).update(
+                    {"machine_id": parent_job.machine_id},
+                    synchronize_session=False,
+                )
+                MachineWorkType.query.filter_by(machine_id=machine.id).delete()
+                db.session.delete(machine)
+
+            recalculate_project_quoted_hours(project)
+            db.session.commit()
+            flash(
+                f"Version removed. {returned_quote_hours:.1f} quoted hours returned to {get_machine_job_label(parent_job)}.",
+                "success",
+            )
+            return redirect(url_for("project_detail", project_id=project.id) + "#machines")
+
         if machine_job_has_history(job):
             flash(
                 f"Cannot remove {get_machine_job_label(job)} because it already has time entries, status, incurred hours, child versions, or milestone dates.",
@@ -2559,7 +2693,6 @@ def create_app():
             )
             return redirect(url_for("project_detail", project_id=project.id) + "#machines")
 
-        machine = job.machine
         MachineWorkType.query.filter_by(
             machine_id=job.machine_id,
             work_type=job.work_type,
@@ -2690,6 +2823,16 @@ def create_app():
         for wt in selected_jobs:
             quoted_hours = wt.get("quoted_hours") or 0.0
             additional_quoted_hours += quoted_hours
+            parent_job = MachineJob.query.filter_by(
+                machine_id=root_id,
+                work_type=wt["work_type"],
+                other_description=wt["other_description"] or None,
+                parent_job_id=None,
+            ).first()
+            if parent_job is None:
+                db.session.rollback()
+                flash(f"Cannot create a version of {wt['label']} because its V1 job no longer exists.", "error")
+                return redirect(url_for("project_detail", project_id=project.id) + "#machines")
             db.session.add(
                 MachineWorkType(
                     machine_id=new_machine.id,
@@ -2702,6 +2845,7 @@ def create_app():
                 work_type=wt["work_type"],
                 other_description=wt["other_description"],
                 version_number=next_version_number,
+                parent_job_id=parent_job.id,
                 status="N/S",
                 due_date=wt.get("due_date"),
                 quoted_hours=quoted_hours,
@@ -2958,9 +3102,13 @@ def create_app():
             project.due_date = max(quote_due_dates) if quote_due_dates else None
 
 
-            # Add new quoted job types to all existing machines so they appear
-            # as new rows in the machine list.
-            machines = Machine.query.filter_by(project_id=project.id).all()
+            # Add new quoted job types only to V1 machines. Versioned machines
+            # contain the jobs explicitly selected when that version was created.
+            machines = (
+                Machine.query.filter_by(project_id=project.id)
+                .filter((Machine.version_number.is_(None)) | (Machine.version_number <= 1))
+                .all()
+            )
 
             for machine in machines:
                 for quote in job_quotes:
@@ -3299,9 +3447,30 @@ def ensure_machine_job_schema():
         db.session.flush()
         return job, True
 
-    # ... (rest of the function stays exactly the same as you have it)
     machines = Machine.query.order_by(Machine.id.asc()).all()
+
+    # Repair legacy version rows so every V2+ job has a canonical V1 parent.
+    # New version jobs are linked at creation time; this only normalizes old data.
     for machine in machines:
+        if (machine.version_number or 1) <= 1:
+            continue
+        root_machine_id = machine.parent_machine_id or machine.id
+        for job in machine.jobs:
+            if job.parent_job_id:
+                continue
+            parent_job = MachineJob.query.filter_by(
+                machine_id=root_machine_id,
+                work_type=job.work_type,
+                other_description=job.other_description or None,
+                parent_job_id=None,
+            ).first()
+            if parent_job:
+                job.parent_job_id = parent_job.id
+                job.version_number = machine.version_number or 1
+
+    for machine in machines:
+        if (machine.version_number or 1) > 1:
+            continue
         for spec in machine_work_type_specs(machine):
             job, created = get_or_create_job(machine, spec["work_type"], spec["other_description"])
             if created and job.work_type == "RA" and not job.other_description:

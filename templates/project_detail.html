@@ -435,9 +435,9 @@
                   <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                 </svg>
               </a>
-              <form method="post" action="{{ url_for('delete_machine_job', project_id=project.id, job_id=job.id) }}" onsubmit="return confirm('Remove this unused job row? Rows with time entries, status, hours, due dates, or milestones are protected.');">
+              <form method="post" action="{{ url_for('delete_machine_job', project_id=project.id, job_id=job.id) }}" onsubmit="return confirm('{% if (machine.version_number or 1) > 1 %}Remove this version? Its quoted hours and tracked time will be returned to the matching V1 job.{% else %}Remove this unused job row? Rows with time entries, status, hours, due dates, or milestones are protected.{% endif %}');">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn-link-danger" title="Delete Job" aria-label="Delete Job">
+                <button type="submit" class="btn-link-danger" title="{% if (machine.version_number or 1) > 1 %}Delete Version{% else %}Delete Job{% endif %}" aria-label="{% if (machine.version_number or 1) > 1 %}Delete Version{% else %}Delete Job{% endif %}">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 6h18"></path>
                     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
