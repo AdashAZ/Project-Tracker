@@ -3247,6 +3247,58 @@ tr:nth-child(even) td {
   gap: 0.85rem;
 }
 
+.utilization-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  padding: 1.1rem 1.4rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  border-radius: var(--radius-md);
+  background: linear-gradient(115deg, var(--surface), var(--surface-alt));
+  box-shadow: 0 3px 12px rgba(16, 40, 75, 0.04);
+}
+
+.utilization-copy h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.utilization-copy p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.utilization-metric {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.utilization-value {
+  color: var(--brand-strong);
+  font-size: 2.35rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.utilization-symbol {
+  margin-left: 0.1rem;
+  font-size: 0.6em;
+}
+
+.utilization-hours {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
 .daily-activity-toolbar,
 .daily-date-form,
 .daily-activity-actions,

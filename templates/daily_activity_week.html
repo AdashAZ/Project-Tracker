@@ -22,6 +22,19 @@
     <a class="btn-secondary" href="{{ url_for('daily_activity') }}">Daily Entry</a>
   </div>
 
+  {% if show_utilization %}
+  <section class="utilization-card" aria-labelledby="utilization-heading">
+    <div class="utilization-copy">
+      <h2 id="utilization-heading">Weekly utilization</h2>
+      <p>Saved project hours toward your 40-hour week</p>
+    </div>
+    <div class="utilization-metric">
+      <strong class="utilization-value"><span>{{ "%.1f"|format(utilization_hours / 40 * 100)|replace('.0', '') }}</span><span class="utilization-symbol">%</span></strong>
+      <span class="utilization-hours">{{ "%.2f"|format(utilization_hours) }} / 40 project hours</span>
+    </div>
+  </section>
+  {% endif %}
+
   <div class="daily-activity-layout">
     <section class="daily-activity-main">
       {% for day in week_days %}

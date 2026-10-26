@@ -17,6 +17,19 @@
     <a class="btn-secondary" href="{{ url_for('daily_activity_week', date=selected_date.isoformat()) }}">Weekly Review</a>
   </div>
 
+  {% if show_utilization %}
+  <section class="utilization-card" aria-labelledby="utilization-heading">
+    <div class="utilization-copy">
+      <h2 id="utilization-heading">Daily utilization</h2>
+      <p>Project hours toward your 8-hour day</p>
+    </div>
+    <div class="utilization-metric" role="status" aria-live="polite" aria-atomic="true">
+      <strong class="utilization-value"><span id="daily-utilization-percent">{{ "%.1f"|format(utilization_hours / 8 * 100)|replace('.0', '') }}</span><span class="utilization-symbol">%</span></strong>
+      <span class="utilization-hours"><span id="daily-utilization-hours">{{ "%.2f"|format(utilization_hours) }}</span> / 8 project hours</span>
+    </div>
+  </section>
+  {% endif %}
+
   <form method="post" action="{{ url_for('save_daily_activity') }}" id="daily-activity-form">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="date" value="{{ selected_date.isoformat() }}">

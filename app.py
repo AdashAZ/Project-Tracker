@@ -52,6 +52,20 @@ DAILY_ACTIVITY_CATEGORIES = [
     "Other",
 ]
 SALES_SUPPORT_ADP_NUMBER = "600-303100"
+UTILIZATION_START_DATE = date(2026, 10, 26)
+
+
+def utilization_project_hours(logs):
+    """Count assigned project hours from the utilization launch date onward."""
+    return sum(
+        entry.duration_hours or 0.0
+        for log in logs
+        if log.date >= UTILIZATION_START_DATE
+        for entry in log.entries
+        if entry.category == "Project" and entry.project_id is not None
+    )
+
+
 MACHINE_MILESTONE_DEFINITIONS = [
     {
         "key": "cas_approval",
@@ -1277,6 +1291,8 @@ def create_app():
             week_start=get_week_start(selected_date),
             log=log,
             entries=entries,
+            show_utilization=selected_date >= UTILIZATION_START_DATE,
+            utilization_hours=utilization_project_hours([log]) if log else 0.0,
             categories=DAILY_ACTIVITY_CATEGORIES,
             sales_support_adp_number=SALES_SUPPORT_ADP_NUMBER,
             project_options=get_daily_activity_project_options(),
@@ -1426,9 +1442,11 @@ def create_app():
                 for posting in log.postings
             }
             for (project_id, machine_id, machine_job_id), grouped_item in grouped_by_log.get(log.id, {}).items():
-                project = Project.query.get(project_id)
-                machine = Machine.query.get(machine_id)
-                job = grouped_item["job"] or MachineJob.query.get(machine_job_id)
+                project = db.session.get(Project, project_id) if project_id is not None else None
+                machine = db.session.get(Machine, machine_id) if machine_id is not None else None
+                job = grouped_item["job"] or (
+                    db.session.get(MachineJob, machine_job_id) if machine_job_id is not None else None
+                )
                 posting = existing_postings.get((project_id, machine_id, machine_job_id))
                 candidate_rows.append(
                     {
@@ -1440,9 +1458,8 @@ def create_app():
                         "machine_id": machine_id,
                         "machine_job_id": machine_job_id,
                         "project_label": (
-                            project.na_number
-                            or project.edb_number
-                            or (f"Project {project.id}" if project else f"Project {project_id}")
+                            (project.na_number or project.edb_number or f"Project {project.id}")
+                            if project else (f"Project {project_id}" if project_id is not None else "Unassigned Project")
                         ),
                         "project_name": project.customer if project else "",
                         "machine_name": machine.machine_name if machine else "",
@@ -1601,6 +1618,8 @@ def create_app():
             category_totals=dict(sorted(category_totals.items())),
             project_totals=dict(sorted(project_totals.items())),
             grand_total=grand_total,
+            show_utilization=week_end >= UTILIZATION_START_DATE,
+            utilization_hours=utilization_project_hours(logs),
             submission_review=submission_review,
             past_unsubmitted_weeks=past_unsubmitted_weeks,
         )

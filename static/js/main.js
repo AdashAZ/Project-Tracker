@@ -288,6 +288,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateDailyTotals() {
       const rows = Array.from(dailyActivityList.querySelectorAll("[data-daily-row]"));
       let total = 0;
+      let projectHours = 0;
       const byCategory = new Map();
       const byProject = new Map();
       const byDetail = new Map();
@@ -302,6 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
         byCategory.set(category, (byCategory.get(category) || 0) + hours);
 
         if (data.category === "Project") {
+          if (data.project_id) projectHours += hours;
           const projectLabel = row.querySelector(".daily-project-search")?.value || "Project";
           const machineLabel = row.querySelector(".daily-machine-search")?.value || "Machine";
           const jobLabel = row.querySelector(".daily-job-search")?.value || "Job";
@@ -313,6 +315,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const totalEl = document.getElementById("daily-total-hours");
       if (totalEl) totalEl.textContent = formatHours(total);
+      const utilizationPercent = document.getElementById("daily-utilization-percent");
+      const utilizationHours = document.getElementById("daily-utilization-hours");
+      if (utilizationPercent) utilizationPercent.textContent = (projectHours / 8 * 100).toFixed(1).replace(/\.0$/, "");
+      if (utilizationHours) utilizationHours.textContent = formatHours(projectHours);
       renderSummaryList(document.getElementById("daily-category-totals"), byCategory);
       renderSummaryList(document.getElementById("daily-project-totals"), byProject);
       renderSummaryList(document.getElementById("daily-detail-totals"), byDetail);
