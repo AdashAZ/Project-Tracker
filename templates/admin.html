@@ -13,6 +13,30 @@
         </div>
     </div>
 
+    <section class="admin-hours-section" aria-labelledby="project-hours-heading">
+        <div class="section-header">
+            <h2 id="project-hours-heading">Open Project Hours</h2>
+            <p>Only projects that have not been completed. Remaining hours are added per project, with a minimum of zero for each project.</p>
+        </div>
+        <div class="admin-hours-grid">
+            <div class="admin-hours-card admin-hours-remaining">
+                <span class="admin-hours-label">Remaining quoted hours</span>
+                <strong class="admin-hours-value" id="admin-remaining-hours">{{ "{:,.2f}".format(project_hours.remaining_hours) }}<span>h</span></strong>
+                <span class="admin-hours-caption">Over-budget projects contribute 0 hours</span>
+            </div>
+            <div class="admin-hours-card">
+                <span class="admin-hours-label">Total quoted hours</span>
+                <strong class="admin-hours-value" id="admin-quoted-hours">{{ "{:,.2f}".format(project_hours.quoted_hours) }}<span>h</span></strong>
+                <span class="admin-hours-caption">Across open projects</span>
+            </div>
+            <div class="admin-hours-card">
+                <span class="admin-hours-label">Total incurred hours</span>
+                <strong class="admin-hours-value" id="admin-incurred-hours">{{ "{:,.2f}".format(project_hours.incurred_hours) }}<span>h</span></strong>
+                <span class="admin-hours-caption">Recorded time on open projects</span>
+            </div>
+        </div>
+    </section>
+
     <section class="admin-chart-section">
         <div class="section-header admin-chart-header">
             <div>

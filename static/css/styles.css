@@ -2391,6 +2391,57 @@ tr:nth-child(even) td {
 }
 
 /* Admin Chart */
+.admin-hours-section {
+  margin-bottom: 2rem;
+}
+
+.admin-hours-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 1rem;
+}
+
+.admin-hours-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.admin-hours-remaining {
+  border-left: 4px solid var(--brand);
+  background: linear-gradient(120deg, var(--surface), var(--surface-alt));
+}
+
+.admin-hours-label {
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.admin-hours-value {
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 800;
+  color: var(--brand-strong);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.admin-hours-value span {
+  margin-left: 0.3rem;
+  font-size: 0.5em;
+  font-weight: 500;
+}
+
+.admin-hours-caption {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
 .admin-chart-section {
   background: linear-gradient(180deg, #ffffff, #f8fbff);
   border: 1px solid #cdd9ea;

@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from flask_wtf.csrf import validate_csrf
 from werkzeug.exceptions import BadRequest
 from functools import wraps
-from models import db, Project, Machine, TimeEntry, Comment, ProductLine, ProjectJobQuote, WorkType, MilestoneDefinition, MachineJob
+from models import db, Project, Machine, TimeEntry, Comment, ProductLine, ProjectJobQuote, WorkType, MilestoneDefinition, MachineJob, DailyActivityLog, DailyActivityPosting
 
 def csrf_exempt(f):
     """Decorator to exempt a route from CSRF protection"""
@@ -94,6 +94,41 @@ def get_system_stats():
         return stats
     except Exception as e:
         return {}
+
+
+def get_project_hours_summary():
+    """Uncompleted project balance using project-page incurred time visibility."""
+    eligible_projects = db.or_(Project.status != "Completed", Project.status.is_(None))
+    pending_posting = (
+        db.session.query(DailyActivityPosting.id)
+        .join(DailyActivityLog)
+        .filter(
+            DailyActivityPosting.time_entry_id == TimeEntry.id,
+            DailyActivityPosting.project_id == TimeEntry.project_id,
+            DailyActivityLog.status != "Submitted",
+        )
+        .exists()
+    )
+    incurred_by_project = (
+        db.session.query(TimeEntry.project_id, db.func.sum(TimeEntry.hours).label("hours"))
+        .filter(~pending_posting)
+        .group_by(TimeEntry.project_id)
+        .subquery()
+    )
+    project_hours = (
+        db.session.query(
+            db.func.coalesce(Project.quoted_hours_total, 0.0),
+            db.func.coalesce(incurred_by_project.c.hours, 0.0),
+        )
+        .outerjoin(incurred_by_project, incurred_by_project.c.project_id == Project.id)
+        .filter(eligible_projects)
+        .all()
+    )
+    return {
+        "quoted_hours": sum(quoted for quoted, incurred in project_hours),
+        "incurred_hours": sum(incurred for quoted, incurred in project_hours),
+        "remaining_hours": sum(max(quoted - incurred, 0.0) for quoted, incurred in project_hours),
+    }
 
 
 def get_due_date_projects_by_month(target_year=2026):
@@ -264,12 +299,14 @@ def admin_dashboard():
     backup_files = get_backup_files()
     export_files = get_export_files()
     due_date_chart = get_due_date_projects_by_month(2026)
+    project_hours = get_project_hours_summary()
     
     return render_template('admin.html', 
                          stats=stats, 
                          backup_files=backup_files,
                          export_files=export_files,
-                         due_date_chart=due_date_chart)
+                         due_date_chart=due_date_chart,
+                         project_hours=project_hours)
 
 @admin_bp.route('/backup', methods=['POST'])
 @csrf_exempt
