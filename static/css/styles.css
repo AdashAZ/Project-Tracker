@@ -1488,9 +1488,11 @@ tr.time-entry-draft-row td {
 }
 
 .machine-col-job {
-  width: 70px;
-  min-width: 70px;
+  width: auto;
+  min-width: 90px;
   white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .machine-col-status {
@@ -1554,7 +1556,9 @@ tr.time-entry-draft-row td {
   align-items: center;
   justify-content: center;
   min-width: 2.75rem;
-  max-width: 100%;
+  width: max-content;
+  max-width: none;
+  flex-shrink: 0;
   padding: 0.22rem 0.42rem;
   border: 1px solid rgba(31, 92, 170, 0.18);
   border-radius: 999px;
@@ -1562,8 +1566,9 @@ tr.time-entry-draft-row td {
   color: #1a3f6f;
   font-weight: 800;
   font-size: 0.78rem;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
   line-height: 1.15;
 }
 
@@ -1701,7 +1706,7 @@ tr.time-entry-draft-row td {
 }
 
 #machines table {
-  table-layout: fixed;
+  table-layout: auto;
   min-width: 1500px;
 }
 
@@ -1721,7 +1726,10 @@ tr.time-entry-draft-row td {
 
 #machines th:nth-child(3),
 #machines td:nth-child(3) {
-  width: 5%;
+  width: auto;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 #machines th:nth-child(4),
@@ -1759,8 +1767,17 @@ tr.time-entry-draft-row td {
   display: inline-flex;
   max-width: none;
   white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
   overflow: visible;
   text-overflow: clip;
+}
+
+#time-entries-table th:nth-child(3),
+#time-entries-table td:nth-child(3) {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .machine-name-stack {
